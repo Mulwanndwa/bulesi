@@ -260,20 +260,40 @@ class Quotation extends MY_Controller {
             return $existing;
         }
 
-        $upload_path = FCPATH . 'uploads/quotations/';
-        $this->load->library('upload');
-        $this->upload->initialize([
+        $upload_path = FCPATH . 'uploads' . DIRECTORY_SEPARATOR . 'quotations' . DIRECTORY_SEPARATOR;
+
+        // Ensure directory exists and is writable
+        if (!is_dir($upload_path)) {
+            mkdir($upload_path, 0777, TRUE);
+        }
+
+        $config = [
             'upload_path'   => $upload_path,
             'allowed_types' => 'jpg|jpeg|png|gif|webp',
-            'max_size'      => 5120,
+            'max_size'      => 2048,
             'encrypt_name'  => TRUE,
-        ]);
+        ];
+
+        // Load fresh each call so state does not bleed between fields
+        if (class_exists('CI_Upload')) {
+            $this->upload->initialize($config);
+        } else {
+            $this->load->library('upload', $config);
+        }
 
         if ($this->upload->do_upload($field)) {
+            // Delete old file from disk
             if ($existing && file_exists(FCPATH . $existing)) {
                 @unlink(FCPATH . $existing);
             }
             return 'uploads/quotations/' . $this->upload->data('file_name');
+        }
+
+        // Flash the upload error so user sees what went wrong
+        $err = $this->upload->display_errors('', '');
+        if ($err) {
+            $current = $this->session->flashdata('error') ?? '';
+            $this->session->set_flashdata('error', trim($current . ' | ' . $field . ': ' . strip_tags($err), ' |'));
         }
 
         return $existing;

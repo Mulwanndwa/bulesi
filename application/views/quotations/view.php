@@ -96,22 +96,33 @@
 
         <!-- Photos -->
         <?php
-        $photos = array_filter([$quote->image_1, $quote->image_2, $quote->image_3, $quote->image_4]);
-        if (!empty($photos)): ?>
+        $photos = array_filter([
+            $quote->image_1 ?? null,
+            $quote->image_2 ?? null,
+            $quote->image_3 ?? null,
+            $quote->image_4 ?? null,
+        ]); ?>
         <div class="border-top pt-3 mb-3">
-            <h6 class="text-muted text-uppercase fw-semibold mb-2" style="font-size:.7rem;letter-spacing:.8px">Photos</h6>
+            <h6 class="text-muted text-uppercase fw-semibold mb-2" style="font-size:.7rem;letter-spacing:.8px">
+                <i class="bi bi-images me-1"></i>Photos
+            </h6>
+            <?php if (!empty($photos)): ?>
             <div class="row g-2">
-                <?php foreach ($photos as $img): ?>
+                <?php foreach (array_values($photos) as $img): ?>
                 <div class="col-6 col-md-3">
-                    <a href="<?= base_url($img) ?>" target="_blank">
-                        <img src="<?= base_url($img) ?>" class="img-thumbnail w-100"
-                             style="height:150px;object-fit:cover;cursor:zoom-in">
+                    <a href="<?= base_url($img) ?>" target="_blank" title="Click to view full size">
+                        <img src="<?= base_url($img) ?>"
+                             class="img-thumbnail w-100"
+                             style="height:160px;object-fit:cover;cursor:zoom-in"
+                             onerror="this.style.border='2px solid red';this.alt='Image not found: <?= htmlspecialchars($img) ?>'">
                     </a>
                 </div>
                 <?php endforeach; ?>
             </div>
+            <?php else: ?>
+            <p class="text-muted mb-0" style="font-size:.85rem">No photos attached to this quotation.</p>
+            <?php endif; ?>
         </div>
-        <?php endif; ?>
 
         <!-- Notes -->
         <?php if ($quote->notes): ?>
