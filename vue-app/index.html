@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demo QT — Client App</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <style>
+    :root {
+      --bg:     #12121f;
+      --accent: #e94560;
+      --card:   #1c1c2e;
+      --muted:  rgba(255,255,255,.45);
+    }
+
+    body { background: var(--bg); color: #fff; font-family: system-ui, sans-serif; font-size: .9rem; min-height: 100vh; }
+
+    /* ── Topbar ── */
+    #topbar {
+      background: var(--card); border-bottom: 1px solid rgba(255,255,255,.07);
+      padding: 0 24px; height: 52px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .brand { font-weight: 700; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+    .brand i { color: var(--accent); }
+
+    /* ── Login card ── */
+    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .login-card {
+      background: var(--card); border: 1px solid rgba(255,255,255,.08);
+      border-radius: 14px; padding: 36px; width: 100%; max-width: 420px;
+    }
+    .login-card h5 { font-weight: 700; margin-bottom: 4px; }
+
+    /* ── Dark form controls ── */
+    .form-control, .form-select {
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+      color: #fff; border-radius: 8px;
+    }
+    .form-control:focus, .form-select:focus {
+      background: rgba(255,255,255,.09); border-color: var(--accent);
+      color: #fff; box-shadow: 0 0 0 3px rgba(233,69,96,.2);
+    }
+    .form-control::placeholder { color: rgba(255,255,255,.3); }
+    .form-select option { background: #1c1c2e; color: #fff; }
+    .form-label { color: rgba(255,255,255,.7); font-size: .82rem; margin-bottom: 5px; }
+    .input-group-text {
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+      color: rgba(255,255,255,.5);
+    }
+
+    /* ── Accent button ── */
+    .btn-accent {
+      background: var(--accent); border: none; color: #fff; font-weight: 600;
+      border-radius: 8px; transition: opacity .15s;
+    }
+    .btn-accent:hover { opacity: .88; color: #fff; }
+    .btn-accent:disabled { opacity: .5; }
+
+    /* ── Page layout ── */
+    .page { max-width: 860px; margin: 0 auto; padding: 28px 20px; }
+    .section-title {
+      font-size: .65rem; text-transform: uppercase; letter-spacing: 1.4px;
+      color: var(--muted); margin-bottom: 10px;
+    }
+
+    /* ── Dark card ── */
+    .dk-card {
+      background: var(--card); border: 1px solid rgba(255,255,255,.08);
+      border-radius: 12px; padding: 22px; margin-bottom: 20px;
+    }
+    .dk-card h6 { font-weight: 600; margin-bottom: 16px; }
+
+    /* ── Items table ── */
+    .items-table { width: 100%; border-collapse: collapse; }
+    .items-table th {
+      font-size: .68rem; text-transform: uppercase; letter-spacing: .8px;
+      color: var(--muted); padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .items-table td { padding: 6px 4px; vertical-align: middle; }
+    .items-table .form-control { font-size: .83rem; padding: 6px 10px; }
+    .line-total { font-weight: 600; color: #7ee8a2; font-size: .83rem; white-space: nowrap; padding-left: 8px; }
+
+    /* ── Totals box ── */
+    .totals-box {
+      background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+      border-radius: 10px; padding: 16px 18px;
+    }
+    .totals-box .row-lbl { color: var(--muted); font-size: .82rem; }
+    .totals-box .row-val { font-weight: 600; text-align: right; }
+    .totals-box .grand { font-size: 1.1rem; color: #7ee8a2; }
+
+    /* ── Success ── */
+    .success-icon { font-size: 3.5rem; color: #7ee8a2; }
+    .quote-pill {
+      display: inline-block; background: rgba(126,232,162,.12);
+      border: 1px solid rgba(126,232,162,.3); color: #7ee8a2;
+      border-radius: 30px; padding: 6px 22px; font-size: 1.15rem;
+      font-weight: 700; letter-spacing: 1px; margin: 12px 0 20px;
+    }
+
+    /* ── Alert ── */
+    .dk-alert {
+      border-radius: 8px; padding: 10px 14px; font-size: .83rem;
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+    .dk-alert.err  { background: rgba(220,53,69,.15);  border: 1px solid rgba(220,53,69,.35);  color: #f8a0aa; }
+    .dk-alert.ok   { background: rgba(25,135,84,.15);  border: 1px solid rgba(25,135,84,.35);  color: #7ee8a2; }
+
+    /* ── Misc ── */
+    .divider { border-color: rgba(255,255,255,.08); }
+    .text-muted-dk { color: var(--muted) !important; }
+    [v-cloak] { display: none; }
+  </style>
+</head>
+<body>
+<div id="app" v-cloak>
+
+  <!-- ══ LOGIN ══════════════════════════════════════════════════════════ -->
+  <div v-if="view === 'login'" class="login-wrap">
+    <div class="login-card">
+      <div class="mb-4 text-center">
+        <div style="font-size:2rem;color:var(--accent)"><i class="bi bi-hammer"></i></div>
+        <h5 class="mt-2">Demo QT</h5>
+        <p class="text-muted-dk" style="font-size:.83rem">Sign in to your account</p>
+      </div>
+
+      <div v-if="loginError" class="dk-alert err mb-3">
+        <i class="bi bi-exclamation-circle-fill mt-1"></i>
+        <span>{{ loginError }}</span>
+      </div>
+
+      <form @submit.prevent="doLogin">
+        <div class="mb-3">
+          <label class="form-label">Email or Username</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-person"></i></span>
+            <input v-model="loginForm.login" type="text" class="form-control"
+                   placeholder="admin@mulwai.za" autocomplete="username" required>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="form-label">Password</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+            <input v-model="loginForm.password" :type="showPw ? 'text' : 'password'"
+                   class="form-control" placeholder="••••••••" autocomplete="current-password" required>
+            <button type="button" class="input-group-text" style="cursor:pointer" @click="showPw = !showPw">
+              <i :class="showPw ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-accent w-100 py-2" :disabled="loginLoading">
+          <span v-if="loginLoading" class="spinner-border spinner-border-sm me-2"></span>
+          <i v-else class="bi bi-box-arrow-in-right me-1"></i>
+          {{ loginLoading ? 'Signing in…' : 'Sign In' }}
+        </button>
+      </form>
+
+      <p class="text-center text-muted-dk mt-4 mb-0" style="font-size:.75rem">
+        Credentials are verified against the Demo QT API
+      </p>
+    </div>
+  </div>
+
+  <!-- ══ CREATE QUOTATION ════════════════════════════════════════════════ -->
+  <template v-if="view === 'create'">
+    <!-- Topbar -->
+    <div id="topbar">
+      <div class="brand"><i class="bi bi-hammer"></i> Demo QT</div>
+      <div class="d-flex align-items-center gap-3">
+        <span class="text-muted-dk" style="font-size:.8rem">
+          <i class="bi bi-person-circle me-1"></i>{{ user.username }}
+        </span>
+        <button class="btn btn-sm btn-outline-light btn-sm" @click="logout" style="font-size:.78rem">
+          <i class="bi bi-box-arrow-right me-1"></i> Sign Out
+        </button>
+      </div>
+    </div>
+
+    <div class="page">
+      <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+          <h5 class="fw-bold mb-0">New Quotation</h5>
+          <span class="text-muted-dk" style="font-size:.8rem">Fill in the details below and submit</span>
+        </div>
+        <span class="badge" style="background:rgba(233,69,96,.18);color:var(--accent);font-size:.75rem;border-radius:20px;padding:5px 14px">
+          <i class="bi bi-circle-fill me-1" style="font-size:.4rem;vertical-align:middle"></i> Draft
+        </span>
+      </div>
+
+      <div v-if="quoteError" class="dk-alert err mb-3">
+        <i class="bi bi-exclamation-circle-fill mt-1" style="flex-shrink:0"></i>
+        <div>
+          <strong>Could not create quotation</strong>
+          <ul v-if="Array.isArray(quoteError)" class="mb-0 mt-1 ps-3">
+            <li v-for="e in quoteError" :key="e">{{ e }}</li>
+          </ul>
+          <span v-else>{{ quoteError }}</span>
+        </div>
+      </div>
+
+      <!-- Customer -->
+      <div class="section-title">Customer</div>
+      <div class="dk-card">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Customer Name <span style="color:var(--accent)">*</span></label>
+            <input v-model="qForm.customer_name" type="text" class="form-control" placeholder="Acme Corp" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Phone</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-phone"></i></span>
+              <input v-model="qForm.customer_phone" type="text" class="form-control" placeholder="+27 82 123 4567">
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Email</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+              <input v-model="qForm.customer_email" type="email" class="form-control" placeholder="client@example.com">
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Description</label>
+            <textarea v-model="qForm.description" class="form-control" rows="2"
+                      placeholder="Brief description of this quotation…" style="resize:vertical"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dates & VAT -->
+      <div class="section-title">Dates &amp; Tax</div>
+      <div class="dk-card">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Quote Date <span style="color:var(--accent)">*</span></label>
+            <input v-model="qForm.quote_date" type="date" class="form-control" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Valid Until</label>
+            <input v-model="qForm.valid_until" type="date" class="form-control">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">VAT Rate (%)</label>
+            <div class="input-group">
+              <input v-model.number="qForm.vat_rate" type="number" class="form-control"
+                     min="0" max="100" step="0.5">
+              <span class="input-group-text">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Line Items -->
+      <div class="section-title">Line Items</div>
+      <div class="dk-card">
+        <div class="table-responsive">
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th style="min-width:200px">Description</th>
+                <th style="width:90px">Unit</th>
+                <th style="width:80px">Qty</th>
+                <th style="width:110px">Unit Price (R)</th>
+                <th style="width:100px">Total</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(item, idx) in qForm.items" :key="idx">
+                <td>
+                  <input v-model="item.item_description" type="text" class="form-control"
+                         placeholder="e.g. Labour" required>
+                </td>
+                <td>
+                  <input v-model="item.unit" type="text" class="form-control" placeholder="hrs">
+                </td>
+                <td>
+                  <input v-model.number="item.quantity" type="number" class="form-control"
+                         min="0" step="0.01" @input="recalc">
+                </td>
+                <td>
+                  <input v-model.number="item.unit_price" type="number" class="form-control"
+                         min="0" step="0.01" @input="recalc">
+                </td>
+                <td class="line-total">R {{ lineTotal(item) }}</td>
+                <td class="text-center">
+                  <button type="button" class="btn btn-sm" style="color:rgba(255,255,255,.3);padding:3px 7px"
+                          @click="removeItem(idx)" :disabled="qForm.items.length === 1"
+                          title="Remove row">
+                    <i class="bi bi-x-lg"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-sm mt-3"
+                style="border:1px dashed rgba(255,255,255,.2);color:rgba(255,255,255,.6);border-radius:8px;font-size:.82rem"
+                @click="addItem">
+          <i class="bi bi-plus-lg me-1"></i> Add Line Item
+        </button>
+      </div>
+
+      <!-- Totals -->
+      <div class="dk-card">
+        <div class="totals-box">
+          <div class="d-flex justify-content-between mb-2">
+            <span class="row-lbl">Subtotal</span>
+            <span class="row-val">R {{ fmt(totals.subtotal) }}</span>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span class="row-lbl">VAT ({{ qForm.vat_rate }}%)</span>
+            <span class="row-val">R {{ fmt(totals.vat_amount) }}</span>
+          </div>
+          <hr class="divider my-2">
+          <div class="d-flex justify-content-between">
+            <span class="row-lbl fw-semibold" style="color:#fff">Total</span>
+            <span class="row-val grand">R {{ fmt(totals.total) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="dk-card">
+        <label class="form-label">Notes <span class="text-muted-dk">(optional)</span></label>
+        <textarea v-model="qForm.notes" class="form-control" rows="2"
+                  placeholder="Payment terms, special instructions…" style="resize:vertical"></textarea>
+      </div>
+
+      <!-- Submit -->
+      <div class="d-flex justify-content-end gap-2 mb-4">
+        <button type="button" class="btn btn-sm btn-outline-light" @click="resetForm" :disabled="quoteLoading">
+          <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+        </button>
+        <button type="button" class="btn btn-accent px-4" @click="submitQuote" :disabled="quoteLoading">
+          <span v-if="quoteLoading" class="spinner-border spinner-border-sm me-2"></span>
+          <i v-else class="bi bi-send-fill me-1"></i>
+          {{ quoteLoading ? 'Submitting…' : 'Submit Quotation' }}
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <!-- ══ SUCCESS ═════════════════════════════════════════════════════════ -->
+  <template v-if="view === 'success'">
+    <div id="topbar">
+      <div class="brand"><i class="bi bi-hammer"></i> Demo QT</div>
+      <div class="d-flex align-items-center gap-3">
+        <span class="text-muted-dk" style="font-size:.8rem">
+          <i class="bi bi-person-circle me-1"></i>{{ user.username }}
+        </span>
+        <button class="btn btn-sm btn-outline-light" @click="logout" style="font-size:.78rem">
+          <i class="bi bi-box-arrow-right me-1"></i> Sign Out
+        </button>
+      </div>
+    </div>
+
+    <div class="page text-center" style="padding-top:80px">
+      <div class="success-icon"><i class="bi bi-check-circle-fill"></i></div>
+      <h5 class="mt-3 fw-bold">Quotation Created!</h5>
+      <p class="text-muted-dk">Your quotation has been saved successfully.</p>
+      <div class="quote-pill">{{ createdQuote.quote_number }}</div>
+
+      <div class="dk-card text-start" style="max-width:440px;margin:0 auto 24px">
+        <div class="row g-2" style="font-size:.85rem">
+          <div class="col-5 text-muted-dk">Customer</div>
+          <div class="col-7 fw-semibold">{{ createdQuote.customer_name }}</div>
+          <div class="col-5 text-muted-dk">Quote Date</div>
+          <div class="col-7">{{ createdQuote.quote_date }}</div>
+          <div class="col-5 text-muted-dk">Items</div>
+          <div class="col-7">{{ createdQuote.items_count }}</div>
+          <div class="col-5 text-muted-dk">Subtotal</div>
+          <div class="col-7">R {{ fmt(createdQuote.subtotal) }}</div>
+          <div class="col-5 text-muted-dk">VAT ({{ createdQuote.vat_rate }}%)</div>
+          <div class="col-7">R {{ fmt(createdQuote.vat_amount) }}</div>
+          <div class="col-5 text-muted-dk fw-semibold" style="color:#fff!important">Total</div>
+          <div class="col-7 fw-bold" style="color:#7ee8a2">R {{ fmt(createdQuote.total) }}</div>
+        </div>
+      </div>
+
+      <button class="btn btn-accent px-4" @click="newQuote">
+        <i class="bi bi-plus-lg me-1"></i> Create Another
+      </button>
+    </div>
+  </template>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.4.27/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios@1.7.2/dist/axios.min.js"></script>
+<script>
+const { createApp, ref, reactive, computed, onMounted } = Vue;
+
+// ── Change this if your API is on a different host ────────────────────────
+const API_BASE = 'http://mulwai.za/api';
+
+createApp({
+  setup() {
+
+    // ── State ─────────────────────────────────────────────────────────────
+    const view        = ref('login');
+    const user        = ref({});
+    const showPw      = ref(false);
+    const loginLoading = ref(false);
+    const loginError   = ref('');
+    const quoteLoading = ref(false);
+    const quoteError   = ref('');
+    const createdQuote = ref({});
+
+    const loginForm = reactive({ login: '', password: '' });
+
+    const blankItem  = () => ({ item_description: '', unit: '', quantity: 1, unit_price: 0 });
+    const today      = () => new Date().toISOString().slice(0, 10);
+
+    const qForm = reactive({
+      customer_name:  '',
+      customer_phone: '',
+      customer_email: '',
+      description:    '',
+      quote_date:     today(),
+      valid_until:    '',
+      vat_rate:       15,
+      notes:          '',
+      items:          [blankItem()],
+    });
+
+    // ── Computed totals ───────────────────────────────────────────────────
+    const totals = computed(() => {
+      const subtotal   = qForm.items.reduce((s, i) => s + lineRaw(i), 0);
+      const vat_amount = Math.round(subtotal * qForm.vat_rate / 100 * 100) / 100;
+      return {
+        subtotal:   Math.round(subtotal   * 100) / 100,
+        vat_amount: vat_amount,
+        total:      Math.round((subtotal + vat_amount) * 100) / 100,
+      };
+    });
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    const lineRaw  = i => Math.round(Math.max(0, i.quantity) * Math.max(0, i.unit_price) * 100) / 100;
+    const lineTotal= i => fmt(lineRaw(i));
+    const fmt      = v  => Number(v || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const recalc   = () => {}; // reactivity handles it; kept for explicitness
+
+    // Axios instance that attaches token on every request
+    const http = () => axios.create({
+      baseURL: API_BASE,
+      headers: { Authorization: 'Bearer ' + (localStorage.getItem('qt_token') || '') },
+    });
+
+    // ── Auth ──────────────────────────────────────────────────────────────
+    const doLogin = async () => {
+      loginError.value  = '';
+      loginLoading.value = true;
+      try {
+        const { data } = await axios.post(API_BASE + '/login', {
+          login:    loginForm.login,
+          password: loginForm.password,
+        });
+        localStorage.setItem('qt_token', data.token);
+        localStorage.setItem('qt_user',  JSON.stringify(data.user));
+        user.value = data.user;
+        view.value = 'create';
+        loginForm.password = '';
+      } catch (err) {
+        loginError.value = err.response?.data?.error || 'Login failed. Check your credentials.';
+      } finally {
+        loginLoading.value = false;
+      }
+    };
+
+    const logout = () => {
+      localStorage.removeItem('qt_token');
+      localStorage.removeItem('qt_user');
+      user.value    = {};
+      view.value    = 'login';
+      loginForm.login    = '';
+      loginForm.password = '';
+      loginError.value   = '';
+    };
+
+    // ── Quotation ─────────────────────────────────────────────────────────
+    const submitQuote = async () => {
+      quoteError.value   = '';
+      quoteLoading.value = true;
+
+      // Basic client-side guard
+      if (!qForm.customer_name.trim()) { quoteError.value = 'Customer name is required.'; quoteLoading.value = false; return; }
+      if (!qForm.quote_date)           { quoteError.value = 'Quote date is required.';    quoteLoading.value = false; return; }
+      const validItems = qForm.items.filter(i => i.item_description.trim());
+      if (!validItems.length)          { quoteError.value = 'Add at least one line item.'; quoteLoading.value = false; return; }
+
+      try {
+        const payload = {
+          customer_name:  qForm.customer_name.trim(),
+          customer_phone: qForm.customer_phone.trim(),
+          customer_email: qForm.customer_email.trim(),
+          description:    qForm.description.trim(),
+          quote_date:     qForm.quote_date,
+          valid_until:    qForm.valid_until || undefined,
+          vat_rate:       qForm.vat_rate,
+          notes:          qForm.notes.trim(),
+          items:          validItems,
+        };
+
+        const { data } = await http().post('/quotation', payload);
+
+        createdQuote.value = {
+          quote_number: data.quote_number,
+          customer_name: payload.customer_name,
+          quote_date:    payload.quote_date,
+          items_count:   data.items.length,
+          subtotal:      data.quote.subtotal,
+          vat_rate:      data.quote.vat_rate,
+          vat_amount:    data.quote.vat_amount,
+          total:         data.quote.total,
+        };
+        view.value = 'success';
+      } catch (err) {
+        const d = err.response?.data;
+        if (d?.details)    quoteError.value = d.details;
+        else if (d?.error) quoteError.value = d.error;
+        else               quoteError.value = 'Submission failed. Please try again.';
+
+        // Re-authenticate if token expired
+        if (err.response?.status === 401) {
+          quoteError.value = 'Session expired. Please sign in again.';
+          setTimeout(logout, 2000);
+        }
+      } finally {
+        quoteLoading.value = false;
+      }
+    };
+
+    const addItem    = () => qForm.items.push(blankItem());
+    const removeItem = idx => qForm.items.splice(idx, 1);
+
+    const resetForm = () => {
+      quoteError.value = '';
+      Object.assign(qForm, {
+        customer_name: '', customer_phone: '', customer_email: '',
+        description: '', quote_date: today(), valid_until: '',
+        vat_rate: 15, notes: '', items: [blankItem()],
+      });
+    };
+
+    const newQuote = () => {
+      resetForm();
+      view.value = 'create';
+    };
+
+    // ── Restore session on mount ──────────────────────────────────────────
+    onMounted(() => {
+      const token    = localStorage.getItem('qt_token');
+      const stored   = localStorage.getItem('qt_user');
+      if (token && stored) {
+        user.value = JSON.parse(stored);
+        view.value = 'create';
+      }
+    });
+
+    return {
+      view, user, showPw,
+      loginLoading, loginError, loginForm, doLogin, logout,
+      quoteLoading, quoteError, qForm, totals, createdQuote,
+      submitQuote, addItem, removeItem, resetForm, newQuote,
+      lineTotal, recalc, fmt,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
