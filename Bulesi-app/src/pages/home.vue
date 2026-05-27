@@ -134,6 +134,22 @@
           </button>
         </div>
 
+        <!-- Date range -->
+        <!-- <div class="date-range-row">
+          <div class="date-input-wrap">
+            <i class="bi bi-calendar3 date-icon"></i>
+            <input class="date-input" type="date" :value="dateFrom" @input="dateFrom = $event.target.value" placeholder="From" />
+          </div>
+          <span class="date-sep">—</span>
+          <div class="date-input-wrap">
+            <i class="bi bi-calendar3 date-icon"></i>
+            <input class="date-input" type="date" :value="dateTo" @input="dateTo = $event.target.value" placeholder="To" />
+          </div>
+          <button v-if="hasActiveFilters" class="clear-filters-btn" @click="clearFilters">
+            <i class="bi bi-x-lg"></i> Clear
+          </button>
+        </div> -->
+
         <!-- Status chips -->
         <div class="filter-chips">
           <button
@@ -517,7 +533,7 @@
               <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
               <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
             </svg>
-            Share Quotation
+            Print / Share
           </button>
           <div v-if="shareCopied" class="share-copied">
             <i class="bi bi-check2-circle"></i> Copied to clipboard
@@ -599,6 +615,9 @@
     </button>
 
     <div class="lb-counter">{{ previewIndex + 1 }} / {{ selectedQuote.images.length }}</div>
+    <button class="lb-close-btn" @click="closePreview">
+      <i class="bi bi-x-lg"></i> Close
+    </button>
   </div>
 
   </f7-page>
@@ -675,7 +694,14 @@ export default {
       return list;
     });
 
-    const callPhone = (phone) => { window.location.href = 'tel:' + phone; };
+    const callPhone = (phone) => {
+      const url = 'tel:' + phone;
+      if (window.cordova?.InAppBrowser) {
+        window.cordova.InAppBrowser.open(url, '_system');
+      } else {
+        window.location.href = url;
+      }
+    };
 
     const clearFilters = () => {
       searchQuery.value = '';
@@ -821,33 +847,161 @@ export default {
       }
     };
 
-    const shareQuotation = async () => {
-      const q   = selectedQuote.value;
-      const lines = [
-        `Quotation: ${q.quote_number}`,
-        `Customer:  ${q.customer_name}`,
-        `Date:      ${q.quote_date}`,
-        q.valid_until ? `Valid until: ${q.valid_until}` : null,
-        q.customer_phone ? `Phone: ${q.customer_phone}` : null,
-        q.customer_email ? `Email: ${q.customer_email}` : null,
-        '',
-        ...(q.items || []).map(i =>
-          `  • ${i.item_description}  ×${i.quantity}  @ R ${fmt(i.unit_price)}  =  R ${fmt(i.line_total ?? i.quantity * i.unit_price)}`
-        ),
-        '',
-        `Subtotal: R ${fmt(q.subtotal)}`,
-        `VAT (${q.vat_rate}%): R ${fmt(q.vat_amount)}`,
-        `Total:    R ${fmt(q.total)}`,
-        q.notes ? `\nNotes: ${q.notes}` : null,
-      ].filter(l => l !== null).join('\n');
+    const buildQuotationHTML = (q) => {
+      const rows = (q.items || []).map((i, n) => `
+        <tr>
+          <td>${n + 1}</td>
+          <td>${i.item_description}</td>
+          <td>${i.unit || ''}</td>
+          <td class="r">${i.quantity}</td>
+          <td class="r">R&nbsp;${fmt(i.unit_price)}</td>
+          <td class="r"><strong>R&nbsp;${fmt(i.line_total ?? i.quantity * i.unit_price)}</strong></td>
+        </tr>`).join('');
 
-      if (navigator.share) {
-        try { await navigator.share({ title: q.quote_number, text: lines }); } catch (_) {}
-      } else {
-        await navigator.clipboard.writeText(lines).catch(() => {});
-        shareCopied.value = true;
-        setTimeout(() => { shareCopied.value = false; }, 2500);
-      }
+      const images = (q.images || []).map(img =>
+        `<img src="${img.url}" alt="Image ${img.index}" style="max-width:180px;max-height:180px;object-fit:cover;border-radius:8px;margin:4px">`
+      ).join('');
+
+      return `<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quotation ${q.quote_number}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#1a1a1a;padding:28px;max-width:720px;margin:0 auto}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid #e94560}
+  .co-name{font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .co-sub{font-size:11px;opacity:.45;margin-top:3px}
+  .q-num{font-size:20px;font-weight:800;color:#e94560;text-align:right}
+  .q-date{font-size:12px;opacity:.5;margin-top:3px;text-align:right}
+  .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;background:#f0f0f0;margin-top:6px}
+  .info{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}
+  .lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;opacity:.35;margin-bottom:5px}
+  .val{font-size:15px;font-weight:700}
+  .sub{font-size:12px;opacity:.55;margin-top:2px}
+  table{width:100%;border-collapse:collapse;margin-bottom:16px}
+  th{background:#f5f5f5;padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.6}
+  td{padding:9px 10px;border-bottom:1px solid #f0f0f0;vertical-align:top}
+  .r{text-align:right}
+  .totals{width:260px;margin-left:auto;border-top:1px solid #eee;padding-top:10px}
+  .tr{display:flex;justify-content:space-between;padding:4px 0;font-size:13px}
+  .tdiv{border-top:2px solid #1a1a1a;margin:8px 0}
+  .tgrand{font-size:17px;font-weight:800}
+  .notes{background:#f9f9f9;border-radius:8px;padding:14px;margin-top:20px;font-size:12px;line-height:1.5}
+  .imgs{margin-top:20px;display:flex;flex-wrap:wrap;gap:6px}
+</style>
+</head><body>
+<div class="hdr">
+  <div>
+    <div class="co-name">Bulise</div>
+    <div class="co-sub">Quotation Management</div>
+  </div>
+  <div>
+    <div class="q-num">${q.quote_number}</div>
+    <div class="q-date">${q.quote_date}</div>
+    <span class="badge">${(q.status || '').replace('_', ' ')}</span>
+  </div>
+</div>
+<div class="info">
+  <div>
+    <div class="lbl">Customer</div>
+    <div class="val">${q.customer_name}</div>
+    ${q.customer_phone ? `<div class="sub">${q.customer_phone}</div>` : ''}
+    ${q.customer_email ? `<div class="sub">${q.customer_email}</div>` : ''}
+    ${q.description    ? `<div class="sub" style="margin-top:8px">${q.description}</div>` : ''}
+  </div>
+  <div>
+    <div class="lbl">Quote Details</div>
+    <div class="sub">Date: ${q.quote_date}</div>
+    ${q.valid_until ? `<div class="sub">Valid until: ${q.valid_until}</div>` : ''}
+    ${q.created_by  ? `<div class="sub">Prepared by: ${q.created_by}</div>` : ''}
+  </div>
+</div>
+<div class="lbl" style="margin-bottom:8px">Line Items</div>
+<table>
+  <thead><tr>
+    <th>#</th><th>Description</th><th>Unit</th>
+    <th class="r">Qty</th><th class="r">Unit Price</th><th class="r">Amount</th>
+  </tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="totals">
+  <div class="tr"><span style="opacity:.5">Subtotal</span><span>R&nbsp;${fmt(q.subtotal)}</span></div>
+  <div class="tr"><span style="opacity:.5">VAT (${q.vat_rate}%)</span><span>R&nbsp;${fmt(q.vat_amount)}</span></div>
+  <div class="tdiv"></div>
+  <div class="tr tgrand"><span>Total</span><span>R&nbsp;${fmt(q.total)}</span></div>
+</div>
+${q.notes  ? `<div class="notes"><div class="lbl" style="margin-bottom:6px">Notes</div>${q.notes}</div>` : ''}
+${images   ? `<div class="imgs">${images}</div>` : ''}
+</body></html>`;
+    };
+
+    const markAsSent = async () => {
+      const q = selectedQuote.value;
+      if (q.status !== 'draft') return;
+      const payload = {
+        customer_name:  q.customer_name  || '',
+        customer_phone: q.customer_phone || '',
+        customer_email: q.customer_email || '',
+        description:    q.description    || '',
+        quote_date:     q.quote_date,
+        valid_until:    q.valid_until    || undefined,
+        vat_rate:       q.vat_rate       ?? 15,
+        notes:          q.notes          || '',
+        status:         'sent',
+        items: (q.items || []).map(i => ({
+          item_description: i.item_description,
+          unit:             i.unit || '',
+          quantity:         i.quantity,
+          unit_price:       i.unit_price,
+        })),
+      };
+      try {
+        await apiFetch(`/quotation/${q.id}`, { method: 'PUT', body: JSON.stringify(payload) });
+        selectedQuote.value = { ...q, status: 'sent' };
+      } catch (_) {}
+    };
+
+    const shareQuotation = () => {
+      const q     = selectedQuote.value;
+      const phone = (q.customer_phone || '').replace(/[\s\-().]/g, '');
+
+      const html = buildQuotationHTML({ ...q, images: [] });
+
+      const savePath = cordova.platformId === 'ios' ? '~/Documents/output.pdf' : 'output.pdf';
+
+      cordova.plugins.html2pdf.create(
+        html,
+        savePath,
+        async (pdfPath) => {
+          const message  = `Hi ${q.customer_name}, please find your quotation ${q.quote_number} attached.`;
+          const filePath = 'file://' + pdfPath;
+
+          if (window.plugins?.socialsharing) {
+            if (phone) {
+              window.plugins.socialsharing.shareViaWhatsAppToPhone(
+                phone, message, null, filePath,
+                () => {},
+                () => {
+                  // phone-targeted share failed — fall back to WhatsApp picker
+                  window.plugins.socialsharing.shareVia(
+                    'whatsapp', message, null, filePath,
+                    () => {}, (err) => console.error('WhatsApp share error:', err)
+                  );
+                }
+              );
+            } else {
+              window.plugins.socialsharing.shareVia(
+                'whatsapp', message, null, filePath,
+                () => {}, (err) => console.error('WhatsApp share error:', err)
+              );
+            }
+          }
+
+          await markAsSent();
+        },
+        (error) => console.error('Error creating PDF:', error)
+      );
     };
 
     // ── Edit state ────────────────────────────────────────────────────────
