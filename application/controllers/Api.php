@@ -18,8 +18,22 @@ class Api extends CI_Controller {
     public function __construct()
     {
         parent::__construct();
+        $this->load->helper('url');
+
+        // Allow cross-origin requests (required when the front-end runs on a
+        // different origin, e.g. localhost:5173 during development).
+        header('Access-Control-Allow-Origin: *');
+        header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+        // Browsers send an OPTIONS preflight before every credentialed POST.
+        // Respond with 200 immediately so the real request is allowed through.
+        if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+            http_response_code(200);
+            exit;
+        }
+
         $this->load->model('Quotation_model');
-        // No session, no view libs needed
     }
 
     // ── POST /api/login ──────────────────────────────────────────────
@@ -66,10 +80,143 @@ class Api extends CI_Controller {
         ]);
     }
 
-    // ── POST /api/quotation ───────────────────────────────────────────
-    public function quotation()
+    // ── GET /api/quotations ───────────────────────────────────────────
+    public function quotations()
     {
-        if ($this->input->method() !== 'post') {
+        if ($this->input->method() !== 'get') {
+            return $this->_json(['error' => 'Method Not Allowed'], 405);
+        }
+
+        $user = $this->_auth();
+        if (!$user) {
+            return $this->_json(['error' => 'Unauthorized. Provide a valid Bearer token.'], 401);
+        }
+
+        $valid_statuses = ['draft','sent','accepted','in_progress','completed','invoiced','rejected','cancelled'];
+        $status     = $this->input->get('status') ?: 'all';
+        $with_items = (bool)$this->input->get('with_items');
+
+        if ($status !== 'all' && !in_array($status, $valid_statuses)) {
+            return $this->_json([
+                'error'   => 'Invalid status value.',
+                'allowed' => array_merge(['all'], $valid_statuses),
+            ], 422);
+        }
+
+        $rows = $this->Quotation_model->get_all($status);
+
+        // Cast numeric fields and optionally embed line items
+        $data = [];
+        foreach ($rows as $q) {
+            $row = [
+                'id'             => (int)$q->id,
+                'quote_number'   => $q->quote_number,
+                'type_name'      => $q->type_name,
+                'customer_name'  => $q->customer_name,
+                'customer_phone' => $q->customer_phone,
+                'customer_email' => $q->customer_email,
+                'description'    => $q->description,
+                'status'         => $q->status,
+                'subtotal'       => (float)$q->subtotal,
+                'vat_rate'       => (float)$q->vat_rate,
+                'vat_amount'     => (float)$q->vat_amount,
+                'total'          => (float)$q->total,
+                'quote_date'     => $q->quote_date,
+                'valid_until'    => $q->valid_until,
+                'notes'          => $q->notes,
+                'created_by'     => $q->created_by,
+                'created_at'     => $q->created_at,
+                'updated_at'     => $q->updated_at,
+            ];
+
+            if ($with_items) {
+                $items = $this->Quotation_model->get_items($q->id);
+                $row['items'] = array_map(function($i) {
+                    return [
+                        'id'               => (int)$i->id,
+                        'sort_order'       => (int)$i->sort_order,
+                        'item_description' => $i->item_description,
+                        'unit'             => $i->unit,
+                        'quantity'         => (float)$i->quantity,
+                        'unit_price'       => (float)$i->unit_price,
+                        'line_total'       => (float)$i->line_total,
+                    ];
+                }, $items);
+            }
+
+            $data[] = $row;
+        }
+
+        return $this->_json([
+            'success' => TRUE,
+            'count'   => count($data),
+            'status'  => $status,
+            'data'    => $data,
+        ]);
+    }
+
+    // ── GET /api/quotation/:id  or  POST /api/quotation ──────────────
+    public function quotation($id = NULL)
+    {
+        $method = $this->input->method();
+
+        // ── GET /api/quotation/:id ────────────────────────────────────
+        if ($method === 'get') {
+            if (!$id || !ctype_digit((string)$id)) {
+                return $this->_json(['error' => 'A numeric quotation ID is required.'], 400);
+            }
+
+            $user = $this->_auth();
+            if (!$user) {
+                return $this->_json(['error' => 'Unauthorized. Provide a valid Bearer token.'], 401);
+            }
+
+            $quote = $this->Quotation_model->get_by_id((int)$id);
+            if (!$quote) {
+                return $this->_json(['error' => 'Quotation not found.'], 404);
+            }
+
+            $items = $this->Quotation_model->get_items((int)$id);
+
+            return $this->_json([
+                'success' => TRUE,
+                'data'    => [
+                    'id'             => (int)$quote->id,
+                    'quote_number'   => $quote->quote_number,
+                    'type_name'      => $quote->type_name,
+                    'customer_name'  => $quote->customer_name,
+                    'customer_phone' => $quote->customer_phone,
+                    'customer_email' => $quote->customer_email,
+                    'description'    => $quote->description,
+                    'status'         => $quote->status,
+                    'subtotal'       => (float)$quote->subtotal,
+                    'vat_rate'       => (float)$quote->vat_rate,
+                    'vat_amount'     => (float)$quote->vat_amount,
+                    'total'          => (float)$quote->total,
+                    'quote_date'     => $quote->quote_date,
+                    'valid_until'    => $quote->valid_until,
+                    'notes'          => $quote->notes,
+                    'created_by'     => $quote->created_by,
+                    'created_at'     => $quote->created_at,
+                    'updated_at'     => $quote->updated_at,
+                    'items'          => array_map(function($i) {
+                        return [
+                            'id'               => (int)$i->id,
+                            'sort_order'       => (int)$i->sort_order,
+                            'item_description' => $i->item_description,
+                            'unit'             => $i->unit,
+                            'quantity'         => (float)$i->quantity,
+                            'unit_price'       => (float)$i->unit_price,
+                            'line_total'       => (float)$i->line_total,
+                        ];
+                    }, $items),
+                    'images'         => $this->_images($quote),
+                ],
+            ]);
+        }
+
+        // ── POST /api/quotation ───────────────────────────────────────
+        if ($method !== 'post') {
             return $this->_json(['error' => 'Method Not Allowed'], 405);
         }
 
@@ -212,6 +359,21 @@ class Api extends CI_Controller {
             'vat_amount' => $vat_amount,
             'total'      => round($subtotal + $vat_amount, 2),
         ];
+    }
+
+    // ── Build images array from image_1…image_4 columns ─────────────
+    private function _images($quote)
+    {
+        $images = [];
+        foreach ([1, 2, 3, 4] as $n) {
+            $path = $quote->{"image_$n"} ?? '';
+            if (!$path) continue;
+            $images[] = [
+                'index' => $n,
+                'url'   => base_url($path),
+            ];
+        }
+        return $images;
     }
 
     // ── Sanitise a string value ───────────────────────────────────────
