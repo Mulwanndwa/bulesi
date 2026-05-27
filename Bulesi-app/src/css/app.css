@@ -283,6 +283,7 @@
     outline: none;
     box-sizing: border-box;
     transition: border-color .15s, background .15s;
+    min-width: 80px;
 }
 .tbl-in:focus {
   border-color: rgba(233,69,96,.55);
@@ -755,10 +756,12 @@ background: #111;
   transition: background .15s, transform .1s, border-color .15s;
 }
 .qt-card:hover {
-  background: rgba(255,255,255,.06);
+  background: white;
   transform: translateX(3px);
 }
-
+.list input[type=text]::placeholder, .list input[type=password]::placeholder, .list input[type=search]::placeholder, .list input[type=email]::placeholder, .list input[type=tel]::placeholder, .list input[type=url]::placeholder, .list input[type=date]::placeholder, .list input[type=month]::placeholder, .list input[type=datetime-local]::placeholder, .list input[type=time]::placeholder, .list input[type=number]::placeholder, .list select::placeholder {
+    color: #5c5f6830 !important;
+}
 /* Status left-border colours */
 .qt-s-draft       { border-left-color: rgba(255,255,255,.2); }
 .qt-s-sent        { border-left-color: #3b82f6; }
@@ -1239,4 +1242,10 @@ background: #111;
 }
 .list{
   margin: 16px !important;
+}
+.md .item-input:not(.item-input-outline) .item-content:before, .md .item-input:not(.item-input-outline).item-content:before{
+      background: #eee !important;
+}
+.md .item-input:not(.item-input-outline) .item-content:after, .md .item-input:not(.item-input-outline).item-content:after{
+      background-color: unset !important;
 }

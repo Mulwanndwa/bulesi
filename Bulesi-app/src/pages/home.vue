@@ -134,22 +134,6 @@
           </button>
         </div>
 
-        <!-- Date range -->
-        <div class="date-range-row">
-          <div class="date-input-wrap">
-            <i class="bi bi-calendar3 date-icon"></i>
-            <input class="date-input" type="date" :value="dateFrom" @input="dateFrom = $event.target.value" placeholder="From" />
-          </div>
-          <span class="date-sep">—</span>
-          <div class="date-input-wrap">
-            <i class="bi bi-calendar3 date-icon"></i>
-            <input class="date-input" type="date" :value="dateTo" @input="dateTo = $event.target.value" placeholder="To" />
-          </div>
-          <button v-if="hasActiveFilters" class="clear-filters-btn" @click="clearFilters">
-            <i class="bi bi-x-lg"></i> Clear
-          </button>
-        </div>
-
         <!-- Status chips -->
         <div class="filter-chips">
           <button

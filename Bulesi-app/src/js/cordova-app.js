@@ -85,6 +85,10 @@ var cordovaApp = {
           e.preventDefault();
           return false;
         }
+
+        // No modal/panel/router history — prevent the app from exiting
+        e.preventDefault();
+        return false;
       },
       false,
     );
