@@ -1,0 +1,941 @@
+<template>
+  <f7-page name="home">
+
+    <!-- ── NAVBAR ────────────────────────────────────────────────────── -->
+    <f7-navbar v-if="view !== 'login'">
+      <f7-nav-left>
+        <f7-link v-if="view !== 'list'" @click="goToList" class="nav-back">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </f7-link>
+        <div v-else class="nav-brand">
+          <span class="nav-brand-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+          </span>
+          Bulise
+        </div>
+      </f7-nav-left>
+      <f7-nav-right>
+        <div class="nav-user">
+          <f7-link v-if="view === 'list'" @click="fetchQuotations" class="nav-refresh">
+            <i class="bi bi-arrow-clockwise"></i>
+          </f7-link>
+          <f7-link v-if="view === 'detail'" @click="shareQuotation" class="nav-share">
+            <i class="bi bi-share"></i>
+          </f7-link>
+          <f7-link @click="logout" class="nav-signout">
+            <i class="bi bi-power"></i> Sign Out
+          </f7-link>
+        </div>
+      </f7-nav-right>
+    </f7-navbar>
+
+    <!-- ── BOTTOM TABBAR ─────────────────────────────────────────────── -->
+    <!-- <f7-toolbar v-if="view !== 'login'" tabbar bottom icons>
+      <f7-link @click="goToList" :class="{ 'tab-link-active': view === 'list' }">
+        <i class="bi bi-files" style="font-size:1.1rem"></i>
+        <span class="tabbar-label">Quotations</span>
+      </f7-link>
+      <f7-link @click="goToCreate" :class="{ 'tab-link-active': view === 'create' || view === 'success' }">
+        <i class="bi bi-plus-circle" style="font-size:1.1rem"></i>
+        <span class="tabbar-label">New Quote</span>
+      </f7-link>
+    </f7-toolbar> -->
+
+    <!-- ── LOGIN ─────────────────────────────────────────────────────── -->
+    <template v-if="view === 'login'">
+      <div class="login-wrap">
+        <div class="login-card">
+
+          <div class="login-brand">
+            <div class="login-logo"><i class="bi bi-hammer"></i></div>
+            <div class="login-name">Bulise</div>
+            <div class="login-tagline">Quotation management</div>
+          </div>
+
+          <div v-if="loginError" class="alert-err">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <span>{{ loginError }}</span>
+          </div>
+
+          <div class="lf-group">
+            <label class="lf-label">Username</label>
+            <div class="lf-input-wrap">
+              <i class="bi bi-person lf-icon"></i>
+              <input
+                class="lf-input"
+                type="text"
+                placeholder="your username"
+                :value="loginForm.login"
+                @input="loginForm.login = $event.target.value"
+                @keyup.enter="doLogin"
+                autocomplete="username"
+              />
+            </div>
+          </div>
+
+          <div class="lf-group">
+            <label class="lf-label">Password</label>
+            <div class="lf-input-wrap">
+              <i class="bi bi-lock lf-icon"></i>
+              <input
+                class="lf-input"
+                :type="showPw ? 'text' : 'password'"
+                placeholder="••••••••"
+                :value="loginForm.password"
+                @input="loginForm.password = $event.target.value"
+                @keyup.enter="doLogin"
+                autocomplete="current-password"
+              />
+              <button type="button" class="lf-pw-btn" @click="showPw = !showPw">
+                <i :class="showPw ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+              </button>
+            </div>
+          </div>
+
+          <button
+            class="login-btn"
+            @click="doLogin"
+            :disabled="loginLoading || !loginForm.login || !loginForm.password"
+          >
+            <f7-preloader v-if="loginLoading" :size="18" color="white"></f7-preloader>
+            <i v-else class="bi bi-box-arrow-in-right"></i>
+            {{ loginLoading ? 'Signing in…' : 'Sign In' }}
+          </button>
+
+        </div>
+      </div>
+    </template>
+
+    <!-- ── LIST ─────────────────────────────────────────────────────── -->
+    <template v-if="view === 'list'">
+
+      <div class="list-header">
+        <div class="list-header-row">
+          <div class="list-header-title">Quotations</div>
+          <span v-if="!quotationsLoading" class="list-count-pill">
+            {{ filteredQuotations.length }}
+          </span>
+        </div>
+
+        <!-- Search -->
+        <div class="search-bar-wrap">
+          <i class="bi bi-search search-icon"></i>
+          <input
+            class="search-input"
+            type="text"
+            placeholder="Search by customer, quote number…"
+            :value="searchQuery"
+            @input="searchQuery = $event.target.value"
+          />
+          <button v-if="searchQuery" class="search-clear" @click="searchQuery = ''">
+            <i class="bi bi-x"></i>
+          </button>
+        </div>
+
+        <!-- Date range -->
+        <div class="date-range-row">
+          <div class="date-input-wrap">
+            <i class="bi bi-calendar3 date-icon"></i>
+            <input class="date-input" type="date" :value="dateFrom" @input="dateFrom = $event.target.value" placeholder="From" />
+          </div>
+          <span class="date-sep">—</span>
+          <div class="date-input-wrap">
+            <i class="bi bi-calendar3 date-icon"></i>
+            <input class="date-input" type="date" :value="dateTo" @input="dateTo = $event.target.value" placeholder="To" />
+          </div>
+          <button v-if="hasActiveFilters" class="clear-filters-btn" @click="clearFilters">
+            <i class="bi bi-x-lg"></i> Clear
+          </button>
+        </div>
+
+        <!-- Status chips -->
+        <div class="filter-chips">
+          <button
+            v-for="s in statusFilters" :key="s.value"
+            :class="['chip', listFilter === s.value ? 'active' : '']"
+            @click="setListFilter(s.value)"
+          >{{ s.label }}</button>
+        </div>
+      </div>
+
+      <button class="list-fab" @click="goToCreate">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </button>
+
+      <div v-if="quotationsLoading" class="list-spinner">
+        <f7-preloader :size="36"></f7-preloader>
+      </div>
+
+      <div v-else-if="quotationsError" style="padding:16px">
+        <div class="alert-err">
+          <i class="bi bi-exclamation-circle-fill"></i>
+          <span>{{ quotationsError }}</span>
+        </div>
+      </div>
+
+      <div v-else-if="!filteredQuotations.length" class="list-empty">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+        <p>No quotations found</p>
+      </div>
+
+      <div v-else class="qt-list">
+        <div v-for="q in filteredQuotations" :key="q.id" :class="['qt-card', 'qt-s-' + q.status]" @click="openQuotation(q)" style="cursor:pointer">
+          <div class="qt-card-main">
+            <div class="qt-card-left">
+              <div class="qt-number">{{ q.quote_number }}</div>
+              <div class="qt-customer">{{ q.customer_name }}</div>
+            </div>
+            <div class="qt-card-right">
+              <div class="qt-total">R {{ fmt(q.total) }}</div>
+              <span :class="['st-badge', 'st-' + q.status]">{{ q.status.replace('_', ' ') }}</span>
+            </div>
+          </div>
+          <div class="qt-card-footer">
+            <span><i class="bi bi-calendar3"></i> {{ q.quote_date }}</span>
+            <span v-if="q.type_name"><i class="bi bi-tag"></i> {{ q.type_name }}</span>
+            <span v-if="q.customer_email"><i class="bi bi-envelope"></i> {{ q.customer_email }}</span>
+            <button v-if="q.customer_phone" class="qt-call-btn" @click.stop="callPhone(q.customer_phone)">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.59 3.47 2 2 0 0 1 3.56 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.69a16 16 0 0 0 6.29 6.29l.86-.86a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+              {{ q.customer_phone }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </template>
+
+    <!-- ── CREATE ────────────────────────────────────────────────────── -->
+    <template v-if="view === 'create'">
+
+      <div class="page-hero">
+        <div class="page-hero-inner">
+          <div>
+            <div class="page-hero-title">New Quotation</div>
+            <div class="page-hero-sub">Fill in the details below and submit</div>
+          </div>
+          <span class="badge-draft">Draft</span>
+        </div>
+      </div>
+
+      <div class="form-wrap">
+
+        <div v-if="quoteError" class="alert-err" style="margin-bottom:16px">
+          <i class="bi bi-exclamation-circle-fill" style="flex-shrink:0;margin-top:2px"></i>
+          <div>
+            <strong>Could not create quotation</strong>
+            <ul v-if="Array.isArray(quoteError)" class="alert-list">
+              <li v-for="e in quoteError" :key="e">{{ e }}</li>
+            </ul>
+            <span v-else> — {{ quoteError }}</span>
+          </div>
+        </div>
+
+        <!-- Customer -->
+        <div class="section-head">Customer</div>
+        <f7-list inset strong>
+          <f7-list-input label="Customer Name *" type="text" placeholder="Acme Corp"
+            :value="qForm.customer_name" @input="qForm.customer_name = $event.target.value" required validate>
+            <template #media><i class="bi bi-building"></i></template>
+          </f7-list-input>
+          <f7-list-input label="Phone" type="text" placeholder="+27 82 123 4567"
+            :value="qForm.customer_phone" @input="qForm.customer_phone = $event.target.value">
+            <template #media><i class="bi bi-phone"></i></template>
+          </f7-list-input>
+          <f7-list-input label="Email" type="email" placeholder="client@example.com"
+            :value="qForm.customer_email" @input="qForm.customer_email = $event.target.value">
+            <template #media><i class="bi bi-envelope"></i></template>
+          </f7-list-input>
+          <f7-list-input label="Description" type="textarea" placeholder="Brief description of this quotation…"
+            :value="qForm.description" @input="qForm.description = $event.target.value" resizable>
+            <template #media><i class="bi bi-card-text"></i></template>
+          </f7-list-input>
+          <br/>
+        </f7-list>
+
+        <!-- Dates & VAT -->
+        <div class="section-head">Dates &amp; Tax</div>
+        <f7-list inset strong >
+          <f7-list-input label="Quote Date *" type="date"
+            :value="qForm.quote_date" @input="qForm.quote_date = $event.target.value" required validate>
+            <template #media><i class="bi bi-calendar3"></i></template>
+          </f7-list-input>
+          <f7-list-input label="Valid Until" type="date"
+            :value="qForm.valid_until" @input="qForm.valid_until = $event.target.value">
+            <template #media><i class="bi bi-calendar-check"></i></template>
+          </f7-list-input>
+          <f7-list-input label="VAT Rate (%)" type="number" min="0" max="100" step="0.5"
+            :value="qForm.vat_rate" @input="qForm.vat_rate = parseFloat($event.target.value) || 0" style="padding-bottom: 1em;">
+            <template #media><i class="bi bi-percent"></i></template>
+          </f7-list-input>
+          
+        </f7-list>
+
+        <!-- Line Items -->
+        <div class="section-head">Line Items</div>
+        <div class="items-card">
+          <div style="overflow-x:auto">
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th style="min-width:180px">Description</th>
+                  <th style="width:78px">Unit</th>
+                  <th style="width:70px">Qty</th>
+                  <th style="width:110px">Unit Price (R)</th>
+                  <th style="width:90px;text-align:right">Total</th>
+                  <th style="width:32px"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, idx) in qForm.items" :key="idx">
+                  <td><input v-model="item.item_description" type="text" class="tbl-in" placeholder="e.g. Labour"></td>
+                  <td><input v-model="item.unit" type="text" class="tbl-in" placeholder="hrs"></td>
+                  <td><input v-model.number="item.quantity" type="number" class="tbl-in" min="0" step="0.01" @input="recalc"></td>
+                  <td><input v-model.number="item.unit_price" type="number" class="tbl-in" min="0" step="0.01" @input="recalc"></td>
+                  <td class="line-total">R {{ lineTotal(item) }}</td>
+                  <td style="text-align:center">
+                    <button type="button" class="del-btn" @click="removeItem(idx)" :disabled="qForm.items.length === 1">
+                      <i class="bi bi-x-lg"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <button type="button" class="add-item-btn" @click="addItem">
+            <i class="bi bi-plus-lg"></i> Add Line Item
+          </button>
+        </div>
+
+        <!-- Totals -->
+        <div class="totals-card">
+          <div class="t-row">
+            <span class="lbl">Subtotal</span>
+            <span class="val">R {{ fmt(totals.subtotal) }}</span>
+          </div>
+          <div class="t-row">
+            <span class="lbl">VAT ({{ qForm.vat_rate }}%)</span>
+            <span class="val">R {{ fmt(totals.vat_amount) }}</span>
+          </div>
+          <div class="t-divider"></div>
+          <div class="t-row grand">
+            <span>Total</span>
+            <span class="grand-val">R {{ fmt(totals.total) }}</span>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="section-head">Notes</div>
+        <f7-list inset strong>
+          <f7-list-input label="Notes (optional)" type="textarea" placeholder="Payment terms, special instructions…"
+            :value="qForm.notes" @input="qForm.notes = $event.target.value" resizable>
+            <template #media><i class="bi bi-sticky"></i></template>
+          </f7-list-input>
+        </f7-list>
+
+        <!-- Actions -->
+        <div class="form-actions">
+          <!-- <button class="btn-ghost" @click="resetForm" :disabled="quoteLoading">
+            <i class="bi bi-arrow-counterclockwise"></i> Reset
+          </button> -->
+          <button class="btn-primary" @click="submitQuote" :disabled="quoteLoading">
+            <f7-preloader v-if="quoteLoading" :size="18" color="white"></f7-preloader>
+            <i v-else class="bi bi-send-fill"></i>
+            {{ quoteLoading ? 'Submitting…' : 'Submit Quotation' }}
+          </button>
+        </div>
+
+      </div>
+    </template>
+
+    <!-- ── DETAIL ────────────────────────────────────────────────────── -->
+    <template v-if="view === 'detail'">
+
+      <!-- Hero — visible immediately from list data -->
+      <div :class="['detail-hero', 'dh-s-' + (selectedQuote.status || '')]">
+        <div class="detail-hero-top">
+          <div class="detail-hero-left">
+            <div class="detail-quote-num">{{ selectedQuote.quote_number }}</div>
+            <div class="detail-hero-customer">{{ selectedQuote.customer_name }}</div>
+          </div>
+          <div class="detail-hero-right">
+            <span :class="['st-badge', 'st-' + selectedQuote.status]">
+              {{ selectedQuote.status?.replace('_', ' ') }}
+            </span>
+            <span v-if="selectedQuote.type_name" class="detail-type-badge">
+              <i class="bi bi-tag"></i> {{ selectedQuote.type_name }}
+            </span>
+          </div>
+        </div>
+        <div class="detail-big-total">R {{ fmt(selectedQuote.total) }}</div>
+        <div class="detail-hero-contact">
+          <span v-if="selectedQuote.customer_phone">
+            <i class="bi bi-phone"></i> {{ selectedQuote.customer_phone }}
+          </span>
+          <span v-if="selectedQuote.customer_email">
+            <i class="bi bi-envelope"></i> {{ selectedQuote.customer_email }}
+          </span>
+        </div>
+      </div>
+
+      <div v-if="detailLoading" class="list-spinner" style="padding-top:40px">
+        <f7-preloader :size="32"></f7-preloader>
+      </div>
+
+      <div v-else-if="detailError" style="padding:16px">
+        <div class="alert-err">
+          <i class="bi bi-exclamation-circle-fill"></i>
+          <span>{{ detailError }}</span>
+        </div>
+      </div>
+
+      <div v-else class="detail-body">
+
+        <!-- Date / meta grid -->
+        <div class="detail-section-head">Details</div>
+        <div class="detail-info-grid">
+          <div class="detail-cell">
+            <div class="detail-label">Quote Date</div>
+            <div class="detail-value">{{ selectedQuote.quote_date }}</div>
+          </div>
+          <div class="detail-cell">
+            <div class="detail-label">Valid Until</div>
+            <div class="detail-value">{{ selectedQuote.valid_until || '—' }}</div>
+          </div>
+          <div v-if="selectedQuote.created_by" class="detail-cell">
+            <div class="detail-label">Created By</div>
+            <div class="detail-value">{{ selectedQuote.created_by }}</div>
+          </div>
+          <div v-if="selectedQuote.created_at" class="detail-cell">
+            <div class="detail-label">Created At</div>
+            <div class="detail-value">{{ selectedQuote.created_at?.slice(0,16) }}</div>
+          </div>
+          <div v-if="selectedQuote.description" class="detail-cell detail-cell-full">
+            <div class="detail-label">Description</div>
+            <div class="detail-value">{{ selectedQuote.description }}</div>
+          </div>
+        </div>
+
+        <!-- Line items -->
+        <div class="detail-section-head">
+          Line Items
+          <span class="detail-item-count">{{ selectedQuote.items?.length }}</span>
+        </div>
+        <div class="detail-items-wrap">
+          <div v-for="(item, idx) in selectedQuote.items" :key="item.id" class="detail-item">
+            <div class="detail-item-top">
+              <span class="detail-item-num">{{ idx + 1 }}</span>
+              <span class="detail-item-desc">{{ item.item_description }}</span>
+              <span class="detail-item-total">R {{ fmt(item.line_total ?? item.quantity * item.unit_price) }}</span>
+            </div>
+            <div class="detail-item-sub">
+              <span v-if="item.unit">{{ item.unit }}</span>
+              <span>{{ item.quantity }} × R {{ fmt(item.unit_price) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Financial summary -->
+        <div class="detail-summary">
+          <div class="detail-summary-row">
+            <span>Subtotal</span>
+            <span>R {{ fmt(selectedQuote.subtotal) }}</span>
+          </div>
+          <div class="detail-summary-row">
+            <span>VAT ({{ selectedQuote.vat_rate }}%)</span>
+            <span>R {{ fmt(selectedQuote.vat_amount) }}</span>
+          </div>
+          <div class="detail-summary-divider"></div>
+          <div class="detail-summary-row detail-summary-total">
+            <span>Total</span>
+            <span>R {{ fmt(selectedQuote.total) }}</span>
+          </div>
+        </div>
+
+        <!-- Images -->
+        <template v-if="selectedQuote.images?.length">
+          <div class="detail-section-head">
+            Images
+            <span class="detail-item-count">{{ selectedQuote.images.length }}</span>
+          </div>
+          <div class="detail-images-strip">
+            <button
+              v-for="(img, idx) in selectedQuote.images"
+              :key="img.index"
+              class="detail-img-thumb"
+              @click="openPreview(idx)"
+            >
+              <img :src="img.url" :alt="'Image ' + img.index" loading="lazy" />
+            </button>
+          </div>
+        </template>
+
+        <!-- Notes -->
+        <template v-if="selectedQuote.notes">
+          <div class="detail-section-head">Notes</div>
+          <div class="detail-notes">{{ selectedQuote.notes }}</div>
+        </template>
+
+        <!-- Meta footer -->
+        <div v-if="selectedQuote.updated_at" class="detail-meta-footer">
+          Last updated {{ selectedQuote.updated_at?.slice(0,16) }}
+        </div>
+
+        <!-- Actions -->
+        <div class="detail-actions">
+          <button class="btn-primary" @click="shareQuotation">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            Share Quotation
+          </button>
+          <div v-if="shareCopied" class="share-copied">
+            <i class="bi bi-check2-circle"></i> Copied to clipboard
+          </div>
+        </div>
+
+      </div>
+    </template>
+
+    <!-- ── SUCCESS ────────────────────────────────────────────────────── -->
+    <template v-if="view === 'success'">
+      <div class="success-wrap">
+
+        <div class="success-icon"><i class="bi bi-check-circle-fill"></i></div>
+        <h2 class="success-title">Quotation Created!</h2>
+        <p class="success-sub">Your quotation has been saved successfully.</p>
+        <div class="quote-pill">{{ createdQuote.quote_number }}</div>
+
+        <div class="success-card">
+          <div class="sc-row">
+            <span class="sc-lbl">Customer</span>
+            <strong>{{ createdQuote.customer_name }}</strong>
+          </div>
+          <div class="sc-row">
+            <span class="sc-lbl">Quote Date</span>
+            <span>{{ createdQuote.quote_date }}</span>
+          </div>
+          <div class="sc-row">
+            <span class="sc-lbl">Items</span>
+            <span>{{ createdQuote.items_count }}</span>
+          </div>
+          <div class="sc-row">
+            <span class="sc-lbl">Subtotal</span>
+            <span>R {{ fmt(createdQuote.subtotal) }}</span>
+          </div>
+          <div class="sc-row">
+            <span class="sc-lbl">VAT ({{ createdQuote.vat_rate }}%)</span>
+            <span>R {{ fmt(createdQuote.vat_amount) }}</span>
+          </div>
+          <div class="sc-divider"></div>
+          <div class="sc-row sc-total">
+            <strong>Total</strong>
+            <strong class="sc-total-val">R {{ fmt(createdQuote.total) }}</strong>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+          <button class="btn-ghost" @click="goToList">
+            <i class="bi bi-files"></i> View All
+          </button>
+          <button class="btn-primary" @click="goToCreate">
+            <i class="bi bi-plus-lg"></i> New Quote
+          </button>
+        </div>
+
+      </div>
+    </template>
+
+  <!-- ── IMAGE LIGHTBOX ──────────────────────────────────────────────── -->
+  <teleport to="body">
+    <div v-if="previewOpen" class="lightbox" @click.self="closePreview">
+      <button class="lb-close" @click="closePreview">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+
+      <button v-if="previewIndex > 0" class="lb-nav lb-prev" @click="previewIndex--">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
+
+      <img class="lb-img" :src="selectedQuote.images[previewIndex]?.url" :key="previewIndex" />
+
+      <button v-if="previewIndex < selectedQuote.images.length - 1" class="lb-nav lb-next" @click="previewIndex++">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </button>
+
+      <div class="lb-counter">{{ previewIndex + 1 }} / {{ selectedQuote.images.length }}</div>
+    </div>
+  </teleport>
+
+  </f7-page>
+</template>
+
+<script>
+import { ref, reactive, computed, onMounted } from 'vue';
+
+const API_BASE = 'http://mulwai.za/api';
+
+export default {
+  setup() {
+
+    const f7params = {
+      name: 'Demo QT',
+      theme: 'md',
+      darkMode: true,
+      colors: { primary: '#e94560' },
+    };
+
+    // ── State ─────────────────────────────────────────────────────────────
+    const view         = ref('login');
+    const user         = ref({});
+    const showPw       = ref(false);
+    const loginLoading = ref(false);
+    const loginError   = ref('');
+    const quoteLoading = ref(false);
+    const quoteError   = ref('');
+    const createdQuote = ref({});
+
+    // ── List state ────────────────────────────────────────────────────────
+    const quotations        = ref([]);
+    const quotationsLoading = ref(false);
+    const quotationsError   = ref('');
+    const listFilter        = ref('all');
+    const searchQuery       = ref('');
+    const dateFrom          = ref('');
+    const dateTo            = ref('');
+
+    const statusFilters = [
+      { value: 'all',         label: 'All' },
+      { value: 'draft',       label: 'Draft' },
+      { value: 'sent',        label: 'Sent' },
+      { value: 'accepted',    label: 'Accepted' },
+      { value: 'in_progress', label: 'In Progress' },
+      { value: 'completed',   label: 'Completed' },
+      { value: 'invoiced',    label: 'Invoiced' },
+      { value: 'rejected',    label: 'Rejected' },
+      { value: 'cancelled',   label: 'Cancelled' },
+    ];
+
+    const hasActiveFilters = computed(() =>
+      !!searchQuery.value || !!dateFrom.value || !!dateTo.value
+    );
+
+    const filteredQuotations = computed(() => {
+      let list = listFilter.value === 'all'
+        ? quotations.value
+        : quotations.value.filter(q => q.status === listFilter.value);
+
+      const q = searchQuery.value.trim().toLowerCase();
+      if (q) {
+        list = list.filter(x =>
+          x.quote_number?.toLowerCase().includes(q) ||
+          x.customer_name?.toLowerCase().includes(q) ||
+          x.customer_email?.toLowerCase().includes(q) ||
+          x.customer_phone?.toLowerCase().includes(q)
+        );
+      }
+
+      if (dateFrom.value) list = list.filter(x => x.quote_date >= dateFrom.value);
+      if (dateTo.value)   list = list.filter(x => x.quote_date <= dateTo.value);
+
+      return list;
+    });
+
+    const callPhone = (phone) => { window.location.href = 'tel:' + phone; };
+
+    const clearFilters = () => {
+      searchQuery.value = '';
+      dateFrom.value    = '';
+      dateTo.value      = '';
+    };
+
+    // ── Detail state ──────────────────────────────────────────────────────
+    const selectedQuote = ref({});
+    const detailLoading = ref(false);
+    const detailError   = ref('');
+    const shareCopied   = ref(false);
+
+    // ── Image preview ─────────────────────────────────────────────────────
+    const previewOpen  = ref(false);
+    const previewIndex = ref(0);
+
+    const openPreview = (idx) => {
+      previewIndex.value = idx;
+      previewOpen.value  = true;
+    };
+    const closePreview = () => { previewOpen.value = false; };
+
+    const loginForm = reactive({ login: '', password: '' });
+
+    const blankItem = () => ({ item_description: '', unit: '', quantity: 1, unit_price: 0 });
+    const today     = () => new Date().toISOString().slice(0, 10);
+
+    const qForm = reactive({
+      customer_name:  '',
+      customer_phone: '',
+      customer_email: '',
+      description:    '',
+      quote_date:     today(),
+      valid_until:    '',
+      vat_rate:       15,
+      notes:          '',
+      items:          [blankItem()],
+    });
+
+    // ── Computed totals ───────────────────────────────────────────────────
+    const totals = computed(() => {
+      const subtotal   = qForm.items.reduce((s, i) => s + lineRaw(i), 0);
+      const vat_amount = Math.round(subtotal * qForm.vat_rate / 100 * 100) / 100;
+      return {
+        subtotal:   Math.round(subtotal   * 100) / 100,
+        vat_amount: vat_amount,
+        total:      Math.round((subtotal + vat_amount) * 100) / 100,
+      };
+    });
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    const lineRaw   = i => Math.round(Math.max(0, i.quantity) * Math.max(0, i.unit_price) * 100) / 100;
+    const lineTotal = i => fmt(lineRaw(i));
+    const fmt       = v => Number(v || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const recalc    = () => {};
+
+    const apiFetch = async (path, options = {}) => {
+      const res = await fetch(API_BASE + path, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + (localStorage.getItem('qt_token') || ''),
+          ...(options.headers || {}),
+        },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw { response: { status: res.status, data: body } };
+      return body;
+    };
+
+    // ── List functions ────────────────────────────────────────────────────
+    const fetchQuotations = async () => {
+      quotationsLoading.value = true;
+      quotationsError.value   = '';
+      try {
+        const data = await apiFetch('/quotations');
+        quotations.value = data.data ?? data;
+      } catch (err) {
+        if (err.response?.status === 401) { logout(); return; }
+        quotationsError.value = err.response?.data?.error || 'Failed to load quotations.';
+      } finally {
+        quotationsLoading.value = false;
+      }
+    };
+
+    const setListFilter = status => { listFilter.value = status; };
+
+    const openQuotation = async (q) => {
+      selectedQuote.value = { ...q };
+      view.value          = 'detail';
+      detailLoading.value = true;
+      detailError.value   = '';
+      try {
+        const data = await apiFetch(`/quotation/${q.id}`);
+        selectedQuote.value = data.data ?? data.quote ?? data;
+      } catch (err) {
+        if (err.response?.status === 401) { logout(); return; }
+        detailError.value = err.response?.data?.error || 'Failed to load quotation details.';
+      } finally {
+        detailLoading.value = false;
+      }
+    };
+
+    const shareQuotation = async () => {
+      const q   = selectedQuote.value;
+      const lines = [
+        `Quotation: ${q.quote_number}`,
+        `Customer:  ${q.customer_name}`,
+        `Date:      ${q.quote_date}`,
+        q.valid_until ? `Valid until: ${q.valid_until}` : null,
+        q.customer_phone ? `Phone: ${q.customer_phone}` : null,
+        q.customer_email ? `Email: ${q.customer_email}` : null,
+        '',
+        ...(q.items || []).map(i =>
+          `  • ${i.item_description}  ×${i.quantity}  @ R ${fmt(i.unit_price)}  =  R ${fmt(i.line_total ?? i.quantity * i.unit_price)}`
+        ),
+        '',
+        `Subtotal: R ${fmt(q.subtotal)}`,
+        `VAT (${q.vat_rate}%): R ${fmt(q.vat_amount)}`,
+        `Total:    R ${fmt(q.total)}`,
+        q.notes ? `\nNotes: ${q.notes}` : null,
+      ].filter(l => l !== null).join('\n');
+
+      if (navigator.share) {
+        try { await navigator.share({ title: q.quote_number, text: lines }); } catch (_) {}
+      } else {
+        await navigator.clipboard.writeText(lines).catch(() => {});
+        shareCopied.value = true;
+        setTimeout(() => { shareCopied.value = false; }, 2500);
+      }
+    };
+
+    const goToList = () => {
+      view.value = 'list';
+      fetchQuotations();
+    };
+
+    const goToCreate = () => {
+      resetForm();
+      view.value = 'create';
+    };
+
+    // ── Auth ──────────────────────────────────────────────────────────────
+    const doLogin = async () => {
+      loginError.value   = '';
+      loginLoading.value = true;
+      try {
+        const data = await apiFetch('/login', {
+          method: 'POST',
+          body: JSON.stringify({ login: loginForm.login, password: loginForm.password }),
+        });
+        localStorage.setItem('qt_token', data.token);
+        localStorage.setItem('qt_user',  JSON.stringify(data.user));
+        user.value = data.user;
+        loginForm.password = '';
+        goToList();
+      } catch (err) {
+        loginError.value = err.response?.data?.error || 'Login failed. Check your credentials.';
+      } finally {
+        loginLoading.value = false;
+      }
+    };
+
+    const logout = () => {
+      localStorage.removeItem('qt_token');
+      localStorage.removeItem('qt_user');
+      user.value           = {};
+      view.value           = 'login';
+      loginForm.login      = '';
+      loginForm.password   = '';
+      loginError.value     = '';
+      quotations.value  = [];
+      listFilter.value  = 'all';
+      searchQuery.value = '';
+      dateFrom.value    = '';
+      dateTo.value      = '';
+    };
+
+    // ── Quotation ─────────────────────────────────────────────────────────
+    const submitQuote = async () => {
+      quoteError.value   = '';
+      quoteLoading.value = true;
+
+      if (!qForm.customer_name.trim()) { quoteError.value = 'Customer name is required.'; quoteLoading.value = false; return; }
+      if (!qForm.quote_date)           { quoteError.value = 'Quote date is required.';    quoteLoading.value = false; return; }
+      const validItems = qForm.items.filter(i => i.item_description.trim());
+      if (!validItems.length)          { quoteError.value = 'Add at least one line item.'; quoteLoading.value = false; return; }
+
+      try {
+        const payload = {
+          customer_name:  qForm.customer_name.trim(),
+          customer_phone: qForm.customer_phone.trim(),
+          customer_email: qForm.customer_email.trim(),
+          description:    qForm.description.trim(),
+          quote_date:     qForm.quote_date,
+          valid_until:    qForm.valid_until || undefined,
+          vat_rate:       qForm.vat_rate,
+          notes:          qForm.notes.trim(),
+          items:          validItems,
+        };
+
+        const data = await apiFetch('/quotation', { method: 'POST', body: JSON.stringify(payload) });
+
+        createdQuote.value = {
+          quote_number:  data.quote_number,
+          customer_name: payload.customer_name,
+          quote_date:    payload.quote_date,
+          items_count:   data.items.length,
+          subtotal:      data.quote.subtotal,
+          vat_rate:      data.quote.vat_rate,
+          vat_amount:    data.quote.vat_amount,
+          total:         data.quote.total,
+        };
+        view.value = 'success';
+      } catch (err) {
+        const d = err.response?.data;
+        if (d?.details)    quoteError.value = d.details;
+        else if (d?.error) quoteError.value = d.error;
+        else               quoteError.value = 'Submission failed. Please try again.';
+
+        if (err.response?.status === 401) {
+          quoteError.value = 'Session expired. Please sign in again.';
+          setTimeout(logout, 2000);
+        }
+      } finally {
+        quoteLoading.value = false;
+      }
+    };
+
+    const addItem    = () => qForm.items.push(blankItem());
+    const removeItem = idx => qForm.items.splice(idx, 1);
+
+    const resetForm = () => {
+      quoteError.value = '';
+      Object.assign(qForm, {
+        customer_name: '', customer_phone: '', customer_email: '',
+        description: '', quote_date: today(), valid_until: '',
+        vat_rate: 15, notes: '', items: [blankItem()],
+      });
+    };
+
+    const newQuote = () => {
+      resetForm();
+      view.value = 'create';
+    };
+
+    // ── Restore session on mount ──────────────────────────────────────────
+    onMounted(() => {
+      const token  = localStorage.getItem('qt_token');
+      const stored = localStorage.getItem('qt_user');
+      if (token && stored) {
+        user.value = JSON.parse(stored);
+        goToList();
+      }
+    });
+
+    return {
+      f7params,
+      view, user, showPw,
+      loginLoading, loginError, loginForm, doLogin, logout,
+      quoteLoading, quoteError, qForm, totals, createdQuote,
+      submitQuote, addItem, removeItem, resetForm,
+      quotations, quotationsLoading, quotationsError, listFilter, statusFilters,
+      searchQuery, dateFrom, dateTo, hasActiveFilters, clearFilters, callPhone,
+      filteredQuotations, fetchQuotations, setListFilter, goToList, goToCreate,
+      selectedQuote, detailLoading, detailError, shareCopied, openQuotation, shareQuotation,
+      previewOpen, previewIndex, openPreview, closePreview,
+      lineTotal, recalc, fmt,
+    };
+  }
+};
+</script>
