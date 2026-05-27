@@ -4,20 +4,14 @@
     <!-- ── NAVBAR ────────────────────────────────────────────────────── -->
     <f7-navbar v-if="view !== 'login'">
       <f7-nav-left>
-        <f7-link v-if="view !== 'list'" @click="goToList" class="nav-back">
+        <f7-link v-if="view !== 'list'" @click="goBack" class="nav-back">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
         </f7-link>
         <div v-else class="nav-brand">
           <span class="nav-brand-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <line x1="16" y1="13" x2="8" y2="13"/>
-              <line x1="16" y1="17" x2="8" y2="17"/>
-              <polyline points="10 9 9 9 8 9"/>
-            </svg>
+            <img src="../img/logo.png" alt="Bulise" style="width:18px;height:18px;object-fit:contain;" />
           </span>
           Bulise
         </div>
@@ -55,8 +49,8 @@
         <div class="login-card">
 
           <div class="login-brand">
-            <div class="login-logo"><i class="bi bi-hammer"></i></div>
-            <div class="login-name">Bulise</div>
+            <div class="login-logo"><img src="../img/logo.png" alt="Bulise" style="border-radius: 20px; width:108px;height:88px;object-fit:fill;" /></div>
+            <!-- <div class="login-name">Bulise</div> -->
             <div class="login-tagline">Quotation management</div>
           </div>
 
@@ -216,6 +210,9 @@
               </svg>
               {{ q.customer_phone }}
             </button>
+            <button class="qt-call-btn" @click.stop="goToEdit(q)">
+              Edit
+            </button>
           </div>
         </div>
       </div>
@@ -228,10 +225,11 @@
       <div class="page-hero">
         <div class="page-hero-inner">
           <div>
-            <div class="page-hero-title">New Quotation</div>
-            <div class="page-hero-sub">Fill in the details below and submit</div>
+            <div class="page-hero-title">{{ isEditing ? 'Edit Quotation' : 'New Quotation' }}</div>
+            <div class="page-hero-sub">{{ isEditing ? selectedQuote.quote_number : 'Fill in the details below and submit' }}</div>
           </div>
-          <span class="badge-draft">Draft</span>
+          <span v-if="!isEditing" class="badge-draft">Draft</span>
+          <span v-else :class="['st-badge', 'st-' + editStatus]">{{ editStatus.replace('_', ' ') }}</span>
         </div>
       </div>
 
@@ -240,7 +238,7 @@
         <div v-if="quoteError" class="alert-err" style="margin-bottom:16px">
           <i class="bi bi-exclamation-circle-fill" style="flex-shrink:0;margin-top:2px"></i>
           <div>
-            <strong>Could not create quotation</strong>
+            <strong>{{ isEditing ? 'Could not update quotation' : 'Could not create quotation' }}</strong>
             <ul v-if="Array.isArray(quoteError)" class="alert-list">
               <li v-for="e in quoteError" :key="e">{{ e }}</li>
             </ul>
@@ -285,7 +283,19 @@
             :value="qForm.vat_rate" @input="qForm.vat_rate = parseFloat($event.target.value) || 0" style="padding-bottom: 1em;">
             <template #media><i class="bi bi-percent"></i></template>
           </f7-list-input>
-          
+          <f7-list-input v-if="isEditing" label="Status" type="select"
+            :value="editStatus" @change="editStatus = $event.target.value" style="padding-bottom: 1em;">
+            <template #media><i class="bi bi-flag"></i></template>
+            <option value="draft">Draft</option>
+            <option value="sent">Sent</option>
+            <option value="accepted">Accepted</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="invoiced">Invoiced</option>
+            <option value="rejected">Rejected</option>
+            <option value="cancelled">Cancelled</option>
+          </f7-list-input>
+        
         </f7-list>
 
         <!-- Line Items -->
@@ -350,15 +360,33 @@
           </f7-list-input>
         </f7-list>
 
+        <!-- Images -->
+        <div class="section-head">Images</div>
+        <label class="upload-zone" @dragover.prevent @drop.prevent="onImgDrop">
+          <input type="file" accept="image/*" multiple style="display:none" @change="onImgsSelected" />
+          <i class="bi bi-cloud-arrow-up upload-zone-icon"></i>
+          <div class="upload-zone-text">Tap to add photos</div>
+          <div class="upload-zone-hint">JPEG, PNG, WEBP, HEIC</div>
+        </label>
+        <div v-if="uploadedImages.length" class="upload-preview-grid">
+          <div v-for="(img, idx) in uploadedImages" :key="idx" class="upload-preview-item">
+            <img :src="img.url" :alt="'Photo ' + (idx + 1)" />
+            <span v-if="img.existing" class="upload-preview-saved">saved</span>
+            <button type="button" class="upload-preview-remove" @click="removeUploadedImage(idx)">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+        </div>
+
         <!-- Actions -->
         <div class="form-actions">
-          <!-- <button class="btn-ghost" @click="resetForm" :disabled="quoteLoading">
-            <i class="bi bi-arrow-counterclockwise"></i> Reset
+          <!-- <button v-if="isEditing" class="btn-ghost" @click="cancelEdit" :disabled="quoteLoading">
+            <i class="bi bi-x-lg"></i> Cancel
           </button> -->
-          <button class="btn-primary" @click="submitQuote" :disabled="quoteLoading">
+          <button class="btn-primary" @click="isEditing ? submitEdit() : submitQuote()" :disabled="quoteLoading">
             <f7-preloader v-if="quoteLoading" :size="18" color="white"></f7-preloader>
-            <i v-else class="bi bi-send-fill"></i>
-            {{ quoteLoading ? 'Submitting…' : 'Submit Quotation' }}
+            <i v-else :class="isEditing ? 'bi bi-floppy' : 'bi bi-send-fill'"></i>
+            {{ quoteLoading ? (isEditing ? 'Saving…' : 'Submitting…') : (isEditing ? 'Save Changes' : 'Submit Quotation') }}
           </button>
         </div>
 
@@ -565,31 +593,29 @@
     </template>
 
   <!-- ── IMAGE LIGHTBOX ──────────────────────────────────────────────── -->
-  <teleport to="body">
-    <div v-if="previewOpen" class="lightbox" @click.self="closePreview">
-      <button class="lb-close" @click="closePreview">
-        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
+  <div v-if="previewOpen" class="lightbox" @click.self="closePreview">
+    <button class="lb-close" @click="closePreview">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
 
-      <button v-if="previewIndex > 0" class="lb-nav lb-prev" @click="previewIndex--">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="15 18 9 12 15 6"/>
-        </svg>
-      </button>
+    <button v-if="previewIndex > 0" class="lb-nav lb-prev" @click="previewIndex--">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
 
-      <img class="lb-img" :src="selectedQuote.images[previewIndex]?.url" :key="previewIndex" />
+    <img class="lb-img" :src="selectedQuote.images[previewIndex]?.url" :key="previewIndex" />
 
-      <button v-if="previewIndex < selectedQuote.images.length - 1" class="lb-nav lb-next" @click="previewIndex++">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
-      </button>
+    <button v-if="previewIndex < selectedQuote.images.length - 1" class="lb-nav lb-next" @click="previewIndex++">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </button>
 
-      <div class="lb-counter">{{ previewIndex + 1 }} / {{ selectedQuote.images.length }}</div>
-    </div>
-  </teleport>
+    <div class="lb-counter">{{ previewIndex + 1 }} / {{ selectedQuote.images.length }}</div>
+  </div>
 
   </f7-page>
 </template>
@@ -597,7 +623,7 @@
 <script>
 import { ref, reactive, computed, onMounted } from 'vue';
 
-const API_BASE = 'http://mulwai.za/api';
+const API_BASE = 'http://mul-admin.com/api';
 
 export default {
   setup() {
@@ -682,6 +708,47 @@ export default {
     // ── Image preview ─────────────────────────────────────────────────────
     const previewOpen  = ref(false);
     const previewIndex = ref(0);
+
+    // ── Image upload (create / edit form) ────────────────────────────────
+    // Each entry: { file, url, existing, index }
+    // existing=true  → already on server (index = slot 1-4, file = null)
+    // existing=false → local file pending upload
+    const uploadedImages    = ref([]);
+    const removedImageSlots = ref([]);
+
+    const onImgsSelected = (e) => {
+      Array.from(e.target.files || []).forEach(file => {
+        uploadedImages.value.push({ file, url: URL.createObjectURL(file), existing: false });
+      });
+      e.target.value = '';
+    };
+
+    const onImgDrop = (e) => {
+      Array.from(e.dataTransfer.files || [])
+        .filter(f => f.type.startsWith('image/'))
+        .forEach(file => uploadedImages.value.push({ file, url: URL.createObjectURL(file), existing: false }));
+    };
+
+    const removeUploadedImage = (idx) => {
+      const img = uploadedImages.value[idx];
+      if (img.existing) {
+        removedImageSlots.value.push(img.index);
+      } else {
+        URL.revokeObjectURL(img.url);
+      }
+      uploadedImages.value.splice(idx, 1);
+    };
+
+    const apiUpload = async (path, formData) => {
+      const res = await fetch(API_BASE + path, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + (localStorage.getItem('qt_token') || '') },
+        body: formData,
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw { response: { status: res.status, data: body } };
+      return body;
+    };
 
     const openPreview = (idx) => {
       previewIndex.value = idx;
@@ -799,9 +866,133 @@ export default {
       }
     };
 
+    // ── Edit state ────────────────────────────────────────────────────────
+    const isEditing  = ref(false);
+    const editingId  = ref(null);
+    const editStatus = ref('');
+
+    const goToEdit = async (listQuote = null) => {
+      let q = listQuote || selectedQuote.value;
+      // List cards don't carry line items — fetch full data first
+      if (!q.items) {
+        try {
+          const data = await apiFetch(`/quotation/${q.id}`);
+          q = data.data ?? data.quote ?? data;
+        } catch (err) {
+          if (err.response?.status === 401) logout();
+          return;
+        }
+      }
+      selectedQuote.value = q;
+      quoteError.value = '';
+      uploadedImages.value.forEach(img => { if (!img.existing) URL.revokeObjectURL(img.url); });
+      uploadedImages.value    = (q.images || []).map(img => ({ file: null, url: img.url, existing: true, index: img.index }));
+      removedImageSlots.value = [];
+      editingId.value  = q.id;
+      editStatus.value = q.status || 'draft';
+      Object.assign(qForm, {
+        customer_name:  q.customer_name  || '',
+        customer_phone: q.customer_phone || '',
+        customer_email: q.customer_email || '',
+        description:    q.description    || '',
+        quote_date:     q.quote_date     || today(),
+        valid_until:    q.valid_until    || '',
+        vat_rate:       q.vat_rate       ?? 15,
+        notes:          q.notes          || '',
+        items: (q.items || []).length
+          ? q.items.map(i => ({
+              item_description: i.item_description || '',
+              unit:             i.unit             || '',
+              quantity:         Number(i.quantity) || 1,
+              unit_price:       Number(i.unit_price) || 0,
+            }))
+          : [blankItem()],
+      });
+      isEditing.value = true;
+      view.value = 'create';
+    };
+
+    const cancelEdit = () => {
+      isEditing.value  = false;
+      editingId.value  = null;
+      editStatus.value = '';
+      quoteError.value = '';
+      uploadedImages.value.forEach(img => { if (!img.existing) URL.revokeObjectURL(img.url); });
+      uploadedImages.value    = [];
+      removedImageSlots.value = [];
+      view.value = 'detail';
+    };
+
+    const submitEdit = async () => {
+      quoteError.value   = '';
+      quoteLoading.value = true;
+
+      if (!qForm.customer_name.trim()) { quoteError.value = 'Customer name is required.'; quoteLoading.value = false; return; }
+      if (!qForm.quote_date)           { quoteError.value = 'Quote date is required.';    quoteLoading.value = false; return; }
+      const validItems = qForm.items.filter(i => i.item_description.trim());
+      if (!validItems.length)          { quoteError.value = 'Add at least one line item.'; quoteLoading.value = false; return; }
+
+      try {
+        const payload = {
+          customer_name:  qForm.customer_name.trim(),
+          customer_phone: qForm.customer_phone.trim(),
+          customer_email: qForm.customer_email.trim(),
+          description:    qForm.description.trim(),
+          quote_date:     qForm.quote_date,
+          valid_until:    qForm.valid_until || undefined,
+          vat_rate:       qForm.vat_rate,
+          notes:          qForm.notes.trim(),
+          status:         editStatus.value,
+          items:          validItems,
+          ...(removedImageSlots.value.length && { remove_image_slots: removedImageSlots.value }),
+        };
+
+        await apiFetch(`/quotation/${editingId.value}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+
+        const newImages = uploadedImages.value.filter(img => !img.existing);
+        if (newImages.length) {
+          const fd = new FormData();
+          newImages.forEach(img => fd.append('images[]', img.file));
+          await apiUpload(`/quotation/${editingId.value}/images`, fd).catch(() => {});
+        }
+
+        const id = editingId.value;
+        isEditing.value  = false;
+        editingId.value  = null;
+        editStatus.value = '';
+        uploadedImages.value.forEach(img => { if (!img.existing) URL.revokeObjectURL(img.url); });
+        uploadedImages.value    = [];
+        removedImageSlots.value = [];
+        await openQuotation({ id });
+      } catch (err) {
+        const d = err.response?.data;
+        if (d?.details)    quoteError.value = d.details;
+        else if (d?.error) quoteError.value = d.error;
+        else               quoteError.value = 'Update failed. Please try again.';
+
+        if (err.response?.status === 401) {
+          quoteError.value = 'Session expired. Please sign in again.';
+          setTimeout(logout, 2000);
+        }
+      } finally {
+        quoteLoading.value = false;
+      }
+    };
+
     const goToList = () => {
       view.value = 'list';
       fetchQuotations();
+    };
+
+    const goBack = () => {
+      if (view.value === 'create' && isEditing.value) {
+        cancelEdit();
+      } else {
+        goToList();
+      }
     };
 
     const goToCreate = () => {
@@ -870,6 +1061,13 @@ export default {
 
         const data = await apiFetch('/quotation', { method: 'POST', body: JSON.stringify(payload) });
 
+        const quoteId = data.quote?.id ?? data.id;
+        if (uploadedImages.value.length && quoteId) {
+          const fd = new FormData();
+          uploadedImages.value.forEach(img => fd.append('images[]', img.file));
+          await apiUpload(`/quotation/${quoteId}/images`, fd).catch(() => {});
+        }
+
         createdQuote.value = {
           quote_number:  data.quote_number,
           customer_name: payload.customer_name,
@@ -901,6 +1099,12 @@ export default {
 
     const resetForm = () => {
       quoteError.value = '';
+      isEditing.value  = false;
+      editingId.value  = null;
+      editStatus.value = '';
+      uploadedImages.value.forEach(img => { if (!img.existing) URL.revokeObjectURL(img.url); });
+      uploadedImages.value    = [];
+      removedImageSlots.value = [];
       Object.assign(qForm, {
         customer_name: '', customer_phone: '', customer_email: '',
         description: '', quote_date: today(), valid_until: '',
@@ -934,6 +1138,8 @@ export default {
       filteredQuotations, fetchQuotations, setListFilter, goToList, goToCreate,
       selectedQuote, detailLoading, detailError, shareCopied, openQuotation, shareQuotation,
       previewOpen, previewIndex, openPreview, closePreview,
+      uploadedImages, removedImageSlots, onImgsSelected, onImgDrop, removeUploadedImage,
+      isEditing, editStatus, goToEdit, cancelEdit, submitEdit, goBack,
       lineTotal, recalc, fmt,
     };
   }

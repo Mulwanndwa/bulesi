@@ -8,7 +8,7 @@ var cordovaApp = {
     if (!window.navigator.splashscreen) return;
     setTimeout(() => {
       window.navigator.splashscreen.hide();
-    }, 2000);
+    }, 500);
   },
   /*
   This method prevents back button tap to exit from app on android.
@@ -145,16 +145,27 @@ var cordovaApp = {
     // Save f7 instance
     cordovaApp.f7 = f7;
 
-    document.addEventListener('deviceready', () => {
-      // Handle Android back button
+    let called = false;
+    const onReady = () => {
+      if (called) return;
+      called = true;
       cordovaApp.handleAndroidBackButton();
-
-      // Handle Splash Screen
       cordovaApp.handleSplashscreen();
-
-      // Handle Keyboard
       cordovaApp.handleKeyboard();
-    });
+    };
+
+    // Always register the deviceready listener first. If it already fired
+    // (large bundle loaded after the event), the listener never triggers but
+    // the window.cordova.platformId check below catches that case.
+    // The `called` guard prevents double-execution.
+    document.addEventListener('deviceready', onReady, { once: true });
+
+    // window.cordova is set when cordova.js loads, BEFORE deviceready fires,
+    // so it cannot be used to detect whether plugins are ready. Instead check
+    // a property that only exists after deviceready (cordova.platformId).
+    if (window.cordova && window.cordova.platformId) {
+      onReady();
+    }
   },
 };
 
