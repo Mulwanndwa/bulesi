@@ -23,7 +23,7 @@ class Api extends CI_Controller {
         // Allow cross-origin requests (required when the front-end runs on a
         // different origin, e.g. localhost:5173 during development).
         header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+        header('Access-Control-Allow-Methods: POST, GET, PUT, DELETE, OPTIONS');
         header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
         // Browsers send an OPTIONS preflight before every credentialed POST.
@@ -215,6 +215,87 @@ class Api extends CI_Controller {
             ]);
         }
 
+        // ── PUT /api/quotation/:id ────────────────────────────────────
+        if ($method === 'put') {
+            if (!$id || !ctype_digit((string)$id)) {
+                return $this->_json(['error' => 'A numeric quotation ID is required.'], 400);
+            }
+
+            $user = $this->_auth();
+            if (!$user) {
+                return $this->_json(['error' => 'Unauthorized. Provide a valid Bearer token.'], 401);
+            }
+
+            $quote = $this->Quotation_model->get_by_id((int)$id);
+            if (!$quote) {
+                return $this->_json(['error' => 'Quotation not found.'], 404);
+            }
+
+            $body   = $this->_body();
+            $errors = $this->_validate($body);
+            if ($errors) {
+                return $this->_json(['error' => 'Validation failed', 'details' => $errors], 422);
+            }
+
+            $items = $this->_process_items($body['items']);
+            if (empty($items)) {
+                return $this->_json(['error' => 'At least one valid line item is required.'], 422);
+            }
+
+            $valid_statuses = ['draft','sent','accepted','in_progress','completed','invoiced','rejected','cancelled'];
+            $status = isset($body['status']) && in_array($body['status'], $valid_statuses)
+                ? $body['status']
+                : $quote->status;
+
+            $totals = $this->_calc_totals($items, $body['vat_rate'] ?? $quote->vat_rate);
+
+            $row = [
+                'type_id'        => (int)($body['type_id'] ?? $quote->type_id),
+                'customer_name'  => $this->_str($body['customer_name']),
+                'customer_phone' => $this->_str($body['customer_phone'] ?? ''),
+                'customer_email' => $this->_str($body['customer_email'] ?? ''),
+                'description'    => $this->_str($body['description']    ?? ''),
+                'status'         => $status,
+                'subtotal'       => $totals['subtotal'],
+                'vat_rate'       => $totals['vat_rate'],
+                'vat_amount'     => $totals['vat_amount'],
+                'total'          => $totals['total'],
+                'quote_date'     => $body['quote_date'],
+                'valid_until'    => !empty($body['valid_until']) ? $body['valid_until'] : NULL,
+                'notes'          => $this->_str($body['notes'] ?? ''),
+            ];
+
+            // Clear image slots requested for removal
+            if (!empty($body['remove_image_slots']) && is_array($body['remove_image_slots'])) {
+                $clear = [];
+                foreach ($body['remove_image_slots'] as $slot) {
+                    $slot = (int)$slot;
+                    if ($slot < 1 || $slot > 4) continue;
+                    $path = $quote->{"image_$slot"} ?? '';
+                    if ($path && file_exists(FCPATH . $path)) @unlink(FCPATH . $path);
+                    $clear["image_$slot"] = NULL;
+                }
+                if ($clear) $this->db->where('id', (int)$id)->update('quotations', $clear);
+            }
+
+            $ok = $this->Quotation_model->update((int)$id, $row, $items);
+            if (!$ok) {
+                return $this->_json(['error' => 'Failed to update quotation. Please try again.'], 500);
+            }
+
+            $updated    = $this->Quotation_model->get_by_id((int)$id);
+            $items_out  = $this->Quotation_model->get_items((int)$id);
+
+            return $this->_json([
+                'success'      => TRUE,
+                'id'           => (int)$id,
+                'quote_number' => $updated->quote_number,
+                'quote'        => $updated,
+                'items'        => $items_out,
+                'images'       => $this->_images($updated),
+            ]);
+        }
+
         // ── POST /api/quotation ───────────────────────────────────────
         if ($method !== 'post') {
             return $this->_json(['error' => 'Method Not Allowed'], 405);
@@ -272,6 +353,87 @@ class Api extends CI_Controller {
             'quote'        => $quote,
             'items'        => $items_out,
         ], 201);
+    }
+
+    // ── GET|POST /api/quotation/:id/images ──────────────────────────
+    public function quotation_images($id = NULL)
+    {
+        $method = $this->input->method();
+
+        if (!in_array($method, ['get', 'post'])) {
+            return $this->_json(['error' => 'Method Not Allowed'], 405);
+        }
+
+        if (!$id || !ctype_digit((string)$id)) {
+            return $this->_json(['error' => 'A numeric quotation ID is required.'], 400);
+        }
+
+        $user = $this->_auth();
+        if (!$user) {
+            return $this->_json(['error' => 'Unauthorized. Provide a valid Bearer token.'], 401);
+        }
+
+        $quote = $this->Quotation_model->get_by_id((int)$id);
+        if (!$quote) {
+            return $this->_json(['error' => 'Quotation not found.'], 404);
+        }
+
+        // ── GET: return images ────────────────────────────────────────
+        if ($method === 'get') {
+            $images = $this->_images($quote);
+            return $this->_json([
+                'success'       => TRUE,
+                'quotation_id'  => (int)$id,
+                'quote_number'  => $quote->quote_number,
+                'count'         => count($images),
+                'images'        => $images,
+            ]);
+        }
+
+        $files = $_FILES['images'] ?? [];
+        if (empty($files['name'])) {
+            return $this->_json(['error' => 'No images provided.'], 422);
+        }
+
+        // Normalise single-file vs multiple-file structure
+        if (!is_array($files['name'])) {
+            foreach ($files as $k => $v) $files[$k] = [$v];
+        }
+
+        $upload_dir    = FCPATH . 'uploads/quotations/';
+        $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
+
+        if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, TRUE);
+
+        $uploaded = 0;
+        for ($i = 0, $n = count($files['name']); $i < $n; $i++) {
+            if ($files['error'][$i] !== UPLOAD_ERR_OK) continue;
+            if (!in_array(strtolower($files['type'][$i]), $allowed_types)) continue;
+
+            // Find next free slot (re-fetch each iteration so concurrent slots are correct)
+            $fresh = $this->Quotation_model->get_by_id((int)$id);
+            $slot  = NULL;
+            foreach ([1, 2, 3, 4] as $s) {
+                if (empty($fresh->{"image_$s"})) { $slot = $s; break; }
+            }
+            if (!$slot) break;
+
+            $ext   = strtolower(pathinfo($files['name'][$i], PATHINFO_EXTENSION) ?: 'jpg');
+            $fname = 'quote_' . $id . '_' . $slot . '_' . time() . $i . '.' . $ext;
+
+            if (move_uploaded_file($files['tmp_name'][$i], $upload_dir . $fname)) {
+                $this->db->where('id', (int)$id)
+                         ->update('quotations', ["image_$slot" => 'uploads/quotations/' . $fname]);
+                $uploaded++;
+            }
+        }
+
+        $updated = $this->Quotation_model->get_by_id((int)$id);
+        return $this->_json([
+            'success'  => TRUE,
+            'uploaded' => $uploaded,
+            'images'   => $this->_images($updated),
+        ]);
     }
 
     // ── Bearer token auth ─────────────────────────────────────────────
