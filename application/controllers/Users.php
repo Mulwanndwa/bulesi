@@ -165,6 +165,26 @@ class Users extends MY_Controller {
         redirect('users');
     }
 
+    // ── Generate API token (POST) ─────────────────────────────────────
+    public function generate_token($id = NULL)
+    {
+        $this->_get_or_404($id);
+        $token = bin2hex(random_bytes(32)); // 64-char hex token
+        $this->User_model->set_api_token($id, $token);
+        $this->session->set_flashdata('api_token_' . $id, $token);
+        $this->session->set_flashdata('success', 'New API key generated.');
+        redirect('users');
+    }
+
+    // ── Revoke API token (POST) ───────────────────────────────────────
+    public function revoke_token($id = NULL)
+    {
+        $this->_get_or_404($id);
+        $this->User_model->revoke_api_token($id);
+        $this->session->set_flashdata('success', 'API key revoked.');
+        redirect('users');
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────
     private function _get_or_404($id)
     {

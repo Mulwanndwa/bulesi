@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= isset($title) ? htmlspecialchars($title) . ' — Bulesi' : 'Bulesi' ?></title>
+    <title><?= isset($title) ? htmlspecialchars($title) . ' — Demo QT' : 'Demo QT' ?></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
@@ -89,7 +89,7 @@
 <!-- Sidebar -->
 <div id="sidebar">
     <a href="<?= base_url('dashboard') ?>" class="sb-brand">
-        <i class="bi bi-hammer"></i> Bulesi
+        <i class="bi bi-hammer"></i> Demo QT
     </a>
     <nav>
         <div class="sb-label">Overview</div>
@@ -116,6 +116,12 @@
         <a href="<?= base_url('reports') ?>" class="sb-link <?= $this->uri->segment(1)==='reports'?'active':'' ?>">
             <i class="bi bi-bar-chart-line-fill"></i> Reports
         </a>
+        <?php if (in_array($user['group_name'] ?? '', ['Admin','Manager'])): ?>
+        <div class="sb-label">Integrations</div>
+        <a href="<?= base_url('whatsapp') ?>" class="sb-link <?= $this->uri->segment(1)==='whatsapp'?'active':'' ?>">
+            <i class="bi bi-whatsapp"></i> WhatsApp
+        </a>
+        <?php endif; ?>
         <?php if (($user['group_name'] ?? '') === 'Admin'): ?>
         <div class="sb-label">System</div>
         <a href="<?= base_url('users') ?>" class="sb-link <?= $this->uri->segment(1)==='users'?'active':'' ?>">

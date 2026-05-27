@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login &mdash; Bulesi</title>
+    <title>Login &mdash; Demo QT</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <style>
         body {
@@ -57,7 +57,7 @@
 
 <div class="card login-card">
     <div class="card-header">
-        <h4>Bulesi</h4>
+        <h4>Demo QT</h4>
         <small class="text-white-50">Sign in to your account</small>
     </div>
     <div class="card-body">

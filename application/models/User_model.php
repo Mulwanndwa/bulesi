@@ -70,4 +70,15 @@ class User_model extends CI_Model {
         if ($exclude_id) $this->db->where('id !=', (int)$exclude_id);
         return $this->db->count_all_results('auth_users') > 0;
     }
+
+    public function set_api_token($id, $token)
+    {
+        $this->db->where('id', (int)$id)->update('auth_users', ['api_token' => $token]);
+        return $this->db->affected_rows() > 0;
+    }
+
+    public function revoke_api_token($id)
+    {
+        $this->db->where('id', (int)$id)->update('auth_users', ['api_token' => NULL]);
+    }
 }
