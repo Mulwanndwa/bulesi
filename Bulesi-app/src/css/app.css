@@ -811,6 +811,30 @@ background-color: red;
 .user-avatar svg{
   stroke: #111;
 }
+/* ── User avatar with notification badge ─────────────────────────────── */
+.user-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.user-qt-badge {
+  position: absolute;
+      top: -9px;
+    right: -7px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  background: #e94560;
+  color: #fff;
+  font-size: .65rem;
+  font-weight: 700;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #f0eee9;
+  line-height: 1;
+}
+
 /* ── Active toggle (user create form) ────────────────────────────────── */
 .uc-toggle {
   position: relative;

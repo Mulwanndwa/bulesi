@@ -13,7 +13,7 @@
           <span class="nav-brand-icon">
             <img src="../img/logo.png" alt="Bulise" style="width:18px;height:18px;object-fit:contain;" />
           </span>
-          Bulise
+          {{ user.username }}
         </div>
       </f7-nav-left>
       <f7-nav-right>
@@ -222,11 +222,14 @@
           style="cursor:pointer"
         >
           <div class="qt-card-main">
-            <div class="user-avatar">
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-              </svg>
+            <div class="user-avatar-wrap">
+              <div class="user-avatar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </div>
+              <span class="user-qt-badge">{{ u.quotations_count ?? 0 }}</span>
             </div>
             <div class="qt-card-left">
               <div class="qt-number">{{ u.username }}</div>
