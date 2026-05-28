@@ -9,7 +9,7 @@ class Quotation_model extends CI_Model {
         return 'QT-' . date('Y') . '-' . str_pad($row->next_id, 4, '0', STR_PAD_LEFT);
     }
 
-    public function get_all($status = 'all')
+    public function get_all($status = 'all', $user_id = NULL)
     {
         $this->db->select('q.*, u.username AS created_by, t.name AS type_name')
                  ->from('quotations q')
@@ -17,6 +17,9 @@ class Quotation_model extends CI_Model {
                  ->join('quotation_types t',  't.id = q.type_id', 'left');
         if ($status !== 'all') {
             $this->db->where('q.status', $status);
+        }
+        if ($user_id) {
+            $this->db->where('q.user_id', (int)$user_id);
         }
         return $this->db->order_by('q.created_at', 'DESC')->get()->result();
     }

@@ -53,4 +53,5 @@ $route['default_controller'] = 'auth';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
 
+$route['api/users/(:num)/password']   = 'Api/user_password/$1';
 $route['api/quotation/(:num)/images'] = 'Api/quotation_images/$1';

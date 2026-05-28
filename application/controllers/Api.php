@@ -11,6 +11,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *
  * Endpoints:
  *   POST /api/login      — exchange credentials for a Bearer token
+ *   GET  /api/users      — list active users (requires Bearer token)
+ *   POST /api/users      — create a new user (requires Bearer token)
  *   POST /api/quotation  — create a new quotation
  */
 class Api extends CI_Controller {
@@ -34,6 +36,7 @@ class Api extends CI_Controller {
         }
 
         $this->load->model('Quotation_model');
+        $this->load->model('User_model');
     }
 
     // ── POST /api/login ──────────────────────────────────────────────
@@ -51,11 +54,14 @@ class Api extends CI_Controller {
             return $this->_json(['error' => 'login and password are required'], 422);
         }
 
-        $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+        $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'u.email' : 'u.username';
         $user  = $this->db
-            ->where($field,     $login)
-            ->where('is_active', 1)
-            ->get('auth_users')->row();
+            ->select('u.*, g.name AS group_name')
+            ->from('auth_users u')
+            ->join('user_groups g', 'g.id = u.group_id', 'left')
+            ->where($field,      $login)
+            ->where('u.is_active', 1)
+            ->get()->row();
 
         if (!$user || !password_verify($password, $user->password)) {
             return $this->_json(['error' => 'Invalid credentials'], 401);
@@ -76,8 +82,121 @@ class Api extends CI_Controller {
                 'id'         => (int)$user->id,
                 'username'   => $user->username,
                 'email'      => $user->email,
+                'group_id'   => (int)$user->group_id,
+                'group_name' => $user->group_name,
             ],
         ]);
+    }
+
+    // ── GET|POST /api/users ───────────────────────────────────────────
+    public function users()
+    {
+        $method = $this->input->method();
+
+        if (!in_array($method, ['get', 'post'])) {
+            return $this->_json(['error' => 'Method Not Allowed'], 405);
+        }
+
+        $user = $this->_auth();
+        if (!$user) {
+            return $this->_json(['error' => 'Unauthorized. Provide a valid Bearer token.'], 401);
+        }
+
+        // ── GET /api/users ────────────────────────────────────────────
+        if ($method === 'get') {
+            $rows = $this->db
+                ->select('u.id, u.username, u.email, u.is_active, u.created_at, u.updated_at, g.name AS group_name')
+                ->from('auth_users u')
+                ->join('user_groups g', 'g.id = u.group_id', 'left')
+                ->get()->result();
+
+            $data = array_map(function($u) {
+                return [
+                    'id'         => (int)$u->id,
+                    'username'   => $u->username,
+                    'email'      => $u->email,
+                    'group_name' => $u->group_name,
+                    'is_active'  => (bool)$u->is_active,
+                    'created_at' => $u->created_at,
+                    'updated_at' => $u->updated_at,
+                ];
+            }, $rows);
+
+            return $this->_json([
+                'success' => TRUE,
+                'count'   => count($data),
+                'data'    => $data,
+            ]);
+        }
+
+        // ── POST /api/users ───────────────────────────────────────────
+        $body     = $this->_body();
+        $username = $this->_str($body['username'] ?? '');
+        $email    = $this->_str($body['email']    ?? '');
+        $password = $body['password'] ?? '';
+        $group_id = isset($body['group_id']) ? (int)$body['group_id'] : NULL;
+
+        $errors = [];
+        if (!$username)                                          $errors[] = 'username is required';
+        if (!$email)                                             $errors[] = 'email is required';
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL))          $errors[] = 'email is invalid';
+        if (!$password)                                          $errors[] = 'password is required';
+        if (strlen($password) < 6)                               $errors[] = 'password must be at least 6 characters';
+        if (!$group_id)                                          $errors[] = 'group_id is required';
+
+        if (!$errors && $this->User_model->username_exists($username)) $errors[] = 'username already taken';
+        if (!$errors && $this->User_model->email_exists($email))       $errors[] = 'email already registered';
+
+        if ($errors) {
+            return $this->_json(['error' => 'Validation failed', 'details' => $errors], 422);
+        }
+
+        $new_id = $this->User_model->create([
+            'username'  => $username,
+            'email'     => $email,
+            'password'  => $password,
+            'group_id'  => $group_id,
+            'is_active' => isset($body['is_active']) ? (int)(bool)$body['is_active'] : 1,
+        ]);
+
+        if (!$new_id) {
+            return $this->_json(['error' => 'Failed to create user. Please try again.'], 500);
+        }
+
+        $created = $this->User_model->get_by_id($new_id);
+
+        return $this->_json([
+            'success' => TRUE,
+            'data'    => [
+                'id'         => (int)$created->id,
+                'username'   => $created->username,
+                'email'      => $created->email,
+                'group_id'   => (int)$created->group_id,
+                'group_name' => $created->group_name,
+                'is_active'  => (bool)$created->is_active,
+                'created_at' => $created->created_at,
+            ],
+        ], 201);
+    }
+
+    // ── GET /api/groups ───────────────────────────────────────────────
+    public function groups()
+    {
+        if ($this->input->method() !== 'get') {
+            return $this->_json(['error' => 'Method Not Allowed'], 405);
+        }
+
+        $user = $this->_auth();
+        if (!$user) {
+            return $this->_json(['error' => 'Unauthorized. Provide a valid Bearer token.'], 401);
+        }
+
+        $rows = $this->User_model->get_groups();
+        $data = array_map(function($g) {
+            return ['id' => (int)$g->id, 'name' => $g->name];
+        }, $rows);
+
+        return $this->_json(['success' => TRUE, 'data' => $data]);
     }
 
     // ── GET /api/quotations ───────────────────────────────────────────
@@ -95,6 +214,7 @@ class Api extends CI_Controller {
         $valid_statuses = ['draft','sent','accepted','in_progress','completed','invoiced','rejected','cancelled'];
         $status     = $this->input->get('status') ?: 'all';
         $with_items = (bool)$this->input->get('with_items');
+        $user_id    = $this->input->get('user_id') ? (int)$this->input->get('user_id') : NULL;
 
         if ($status !== 'all' && !in_array($status, $valid_statuses)) {
             return $this->_json([
@@ -103,7 +223,7 @@ class Api extends CI_Controller {
             ], 422);
         }
 
-        $rows = $this->Quotation_model->get_all($status);
+        $rows = $this->Quotation_model->get_all($status, $user_id);
 
         // Cast numeric fields and optionally embed line items
         $data = [];
