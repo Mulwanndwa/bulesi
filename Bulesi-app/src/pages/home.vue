@@ -4,7 +4,7 @@
     <!-- ── NAVBAR ────────────────────────────────────────────────────── -->
     <f7-navbar v-if="view !== 'login'">
       <f7-nav-left>
-        <f7-link v-if="view !== 'list'" @click="goBack" class="nav-back">
+        <f7-link v-if="view !== homeView" @click="goBack" class="nav-back">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
@@ -17,16 +17,75 @@
         </div>
       </f7-nav-left>
       <f7-nav-right>
-        <div class="nav-user">
-          <f7-link v-if="view === 'list'" @click="fetchQuotations" class="nav-refresh">
-            <i class="bi bi-arrow-clockwise"></i>
-          </f7-link>
-          <f7-link v-if="view === 'detail'" @click="shareQuotation" class="nav-share">
-            <i class="bi bi-share"></i>
-          </f7-link>
-          <f7-link @click="logout" class="nav-signout">
-            <i class="bi bi-power"></i> Sign Out
-          </f7-link>
+        <div class="nav-menu-wrap">
+          <button class="nav-burger" @click.stop="menuOpen = !menuOpen">
+            <span></span><span></span><span></span>
+          </button>
+
+          <!-- overlay to close on outside click -->
+          <div v-if="menuOpen" class="nav-menu-overlay" @click="menuOpen = false"></div>
+
+          <div v-if="menuOpen" class="nav-dropdown" @click.stop>
+            <!-- user pill -->
+            <div class="nav-drop-user">
+              <div class="user-avatar" style="width:32px;height:32px;flex-shrink:0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </div>
+              <div>
+                <div class="nav-drop-username">{{ user.username }}</div>
+                <div class="nav-drop-group">{{ user.group_name }}</div>
+              </div>
+            </div>
+
+            <div class="nav-drop-divider"></div>
+
+            <!-- Refresh -->
+            <button v-if="view === 'users'" class="nav-drop-item" @click="fetchUsers(); menuOpen = false">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+              Refresh
+            </button>
+            <button v-if="view === 'list'" class="nav-drop-item" @click="fetchQuotations(selectedUser ? selectedUser.id : null); menuOpen = false">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+              Refresh
+            </button>
+
+            <!-- Share -->
+            <button v-if="view === 'detail'" class="nav-drop-item" @click="shareQuotation(); menuOpen = false">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+              Share Quotation
+            </button>
+
+            <!-- Change Password -->
+            <button v-if="view !== 'user-password'" class="nav-drop-item" @click="goToMyPassword(); menuOpen = false">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              Change Password
+            </button>
+
+            <div class="nav-drop-divider"></div>
+
+            <!-- Sign Out -->
+            <button class="nav-drop-item nav-drop-danger" @click="logout(); menuOpen = false">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              Sign Out
+            </button>
+          </div>
         </div>
       </f7-nav-right>
     </f7-navbar>
@@ -108,12 +167,266 @@
       </div>
     </template>
 
+    <!-- ── USERS (admin) ─────────────────────────────────────────────── -->
+    <template v-if="view === 'users'">
+
+      <div class="list-header">
+        <div class="list-header-row">
+          <div class="list-header-title">Staff</div>
+          <span v-if="!usersLoading" class="list-count-pill">{{ filteredUsers.length }}</span>
+        </div>
+        <div class="search-bar-wrap">
+          <i class="bi bi-search search-icon"></i>
+          <input
+            class="search-input"
+            type="text"
+            placeholder="Search by name or email…"
+            :value="userSearch"
+            @input="userSearch = $event.target.value"
+          />
+          <button v-if="userSearch" class="search-clear" @click="userSearch = ''">
+            <i class="bi bi-x"></i>
+          </button>
+        </div>
+      </div>
+
+      <button class="list-fab" @click="goToUserCreate">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </button>
+
+      <div v-if="usersLoading" class="list-spinner">
+        <f7-preloader :size="36"></f7-preloader>
+      </div>
+
+      <div v-else-if="usersError" style="padding:16px">
+        <div class="alert-err">
+          <i class="bi bi-exclamation-circle-fill"></i>
+          <span>{{ usersError }}</span>
+        </div>
+      </div>
+
+      <div v-else-if="!filteredUsers.length" class="list-empty">
+        <i class="bi bi-people" style="font-size:3rem;opacity:.3"></i>
+        <p>No users found</p>
+      </div>
+
+      <div v-else class="qt-list">
+        <div
+          v-for="u in filteredUsers"
+          :key="u.id"
+          class="qt-card"
+          @click="openUser(u)"
+          style="cursor:pointer"
+        >
+          <div class="qt-card-main">
+            <div class="user-avatar">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+            <div class="qt-card-left">
+              <div class="qt-number">{{ u.username }}</div>
+              <div class="qt-customer">{{ u.email }}</div>
+            </div>
+            <div class="qt-card-right">
+              <span :class="['st-badge', u.is_active ? 'st-accepted' : 'st-cancelled']">
+                {{ u.is_active ? 'active' : 'inactive' }}
+              </span>
+              <span v-if="u.group_name" class="st-badge" style="margin-top:4px;background:rgba(255,255,255,.1)">
+                {{ u.group_name }}
+              </span>
+            </div>
+          </div>
+          <div class="qt-card-footer">
+            <span><i class="bi bi-calendar3"></i> Joined {{ u.created_at?.slice(0,10) }}</span>
+            <button class="qt-call-btn" @click.stop="goToChangePassword(u)">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              Password
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </template>
+
+    <!-- ── USER PASSWORD (admin) ─────────────────────────────────────── -->
+    <template v-if="view === 'user-password'">
+
+      <div class="page-hero">
+        <div class="page-hero-inner">
+          <div>
+            <div class="page-hero-title">Change Password</div>
+            <div class="page-hero-sub">{{ passwordUser?.username }}</div>
+          </div>
+          <div class="user-avatar" style="width:44px;height:44px;background:rgba(233,69,96,.25)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e94560" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-wrap" style="padding:24px 20px 60px">
+
+        <div v-if="pwError" class="alert-err" style="margin-bottom:20px">
+          <i class="bi bi-exclamation-circle-fill" style="flex-shrink:0;margin-top:2px"></i>
+          <div>
+            <strong>Could not update password</strong>
+            <ul v-if="Array.isArray(pwError)" class="alert-list">
+              <li v-for="e in pwError" :key="e">{{ e }}</li>
+            </ul>
+            <span v-else> — {{ pwError }}</span>
+          </div>
+        </div>
+
+        <div v-if="pwSuccess" class="alert-ok" style="margin-bottom:20px">
+          <i class="bi bi-check-circle-fill"></i>
+          <span>Password updated successfully.</span>
+        </div>
+
+        <div class="lf-group">
+          <label class="lf-label">New Password</label>
+          <div class="lf-input-wrap">
+            <i class="bi bi-lock lf-icon"></i>
+            <input class="lf-input" :type="showNewPw ? 'text' : 'password'" placeholder="min. 6 characters"
+              :value="pwForm.password" @input="pwForm.password = $event.target.value" autocomplete="new-password" />
+            <button type="button" class="lf-pw-btn" @click="showNewPw = !showNewPw">
+              <i :class="showNewPw ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="lf-group">
+          <label class="lf-label">Confirm Password</label>
+          <div class="lf-input-wrap">
+            <i class="bi bi-lock-fill lf-icon"></i>
+            <input class="lf-input" :type="showConfirmPw ? 'text' : 'password'" placeholder="repeat new password"
+              :value="pwForm.confirm" @input="pwForm.confirm = $event.target.value" autocomplete="new-password" />
+            <button type="button" class="lf-pw-btn" @click="showConfirmPw = !showConfirmPw">
+              <i :class="showConfirmPw ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+            </button>
+          </div>
+        </div>
+
+        <button class="login-btn" style="margin-top:24px" @click="submitPassword"
+          :disabled="pwLoading || !pwForm.password || !pwForm.confirm">
+          <f7-preloader v-if="pwLoading" :size="18" color="white"></f7-preloader>
+          <i v-else class="bi bi-floppy"></i>
+          {{ pwLoading ? 'Saving…' : 'Update Password' }}
+        </button>
+
+      </div>
+    </template>
+
+    <!-- ── USER CREATE (admin) ───────────────────────────────────────── -->
+    <template v-if="view === 'user-create'">
+
+      <div class="page-hero">
+        <div class="page-hero-inner">
+          <div>
+            <div class="page-hero-title">Add Staff Member</div>
+            <div class="page-hero-sub">Fill in the details below to create an account</div>
+          </div>
+          <div class="user-avatar" style="width:44px;height:44px;background:rgba(233,69,96,.25)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e94560" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-wrap margin card" style="padding: 24px 20px 60px">
+
+        <div v-if="userCreateError" class="alert-err" style="margin-bottom:20px">
+          <i class="bi bi-exclamation-circle-fill" style="flex-shrink:0;margin-top:2px"></i>
+          <div>
+            <strong>Could not create user</strong>
+            <ul v-if="Array.isArray(userCreateError)" class="alert-list">
+              <li v-for="e in userCreateError" :key="e">{{ e }}</li>
+            </ul>
+            <span v-else> — {{ userCreateError }}</span>
+          </div>
+        </div>
+
+        <div class="lf-group">
+          <label class="lf-label">Username</label>
+          <div class="lf-input-wrap">
+            <i class="bi bi-person lf-icon"></i>
+            <input class="lf-input" type="text" placeholder="e.g. john_doe"
+              :value="userForm.username" @input="userForm.username = $event.target.value" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="lf-group">
+          <label class="lf-label">Email</label>
+          <div class="lf-input-wrap">
+            <i class="bi bi-envelope lf-icon"></i>
+            <input class="lf-input" type="email" placeholder="staff@example.com"
+              :value="userForm.email" @input="userForm.email = $event.target.value" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="lf-group">
+          <label class="lf-label">Password</label>
+          <div class="lf-input-wrap">
+            <i class="bi bi-lock lf-icon"></i>
+            <input class="lf-input" :type="showUserPw ? 'text' : 'password'" placeholder="min. 6 characters"
+              :value="userForm.password" @input="userForm.password = $event.target.value" autocomplete="new-password" />
+            <button type="button" class="lf-pw-btn" @click="showUserPw = !showUserPw">
+              <i :class="showUserPw ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="lf-group">
+          <label class="lf-label">Role / Group</label>
+          <div class="lf-input-wrap" style="padding-right:12px">
+            <i class="bi bi-people lf-icon"></i>
+            <select class="lf-input" style="cursor:pointer" :value="userForm.group_id"
+              @change="userForm.group_id = parseInt($event.target.value)">
+              <option value="" disabled>Select a role…</option>
+              <option v-if="groupsLoading" disabled>Loading…</option>
+              <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="lf-group" style="display:flex;align-items:center;justify-content:space-between;padding:4px 0">
+          <label class="lf-label" style="margin:0">Active</label>
+          <label class="uc-toggle">
+            <input type="checkbox" :checked="userForm.is_active" @change="userForm.is_active = $event.target.checked" />
+            <span class="uc-toggle-slider"></span>
+          </label>
+        </div>
+
+        <button class="login-btn" style="margin-top:24px" @click="submitUser"
+          :disabled="userCreateLoading || !userForm.username || !userForm.email || !userForm.password || !userForm.group_id">
+          <f7-preloader v-if="userCreateLoading" :size="18" color="white"></f7-preloader>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
+          </svg>
+          {{ userCreateLoading ? 'Creating…' : 'Create Staff Member' }}
+        </button>
+
+      </div>
+    </template>
+
     <!-- ── LIST ─────────────────────────────────────────────────────── -->
     <template v-if="view === 'list'">
 
       <div class="list-header">
         <div class="list-header-row">
-          <div class="list-header-title">Quotations</div>
+          <div class="list-header-title">
+            {{ selectedUser ? selectedUser.username + "'s Quotations" : 'Quotations' }}
+          </div>
           <span v-if="!quotationsLoading" class="list-count-pill">
             {{ filteredQuotations.length }}
           </span>
@@ -624,7 +937,7 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 
 const API_BASE = 'http://mul-admin.com/api';
 
@@ -642,11 +955,48 @@ export default {
     const view         = ref('login');
     const user         = ref({});
     const showPw       = ref(false);
+    const menuOpen     = ref(false);
     const loginLoading = ref(false);
     const loginError   = ref('');
     const quoteLoading = ref(false);
     const quoteError   = ref('');
     const createdQuote = ref({});
+
+    // ── Users state (admin) ───────────────────────────────────────────────
+    const users             = ref([]);
+    const usersLoading      = ref(false);
+    const usersError        = ref('');
+    const userSearch        = ref('');
+    const selectedUser      = ref(null);
+    const groups            = ref([]);
+    const groupsLoading     = ref(false);
+    const showUserPw        = ref(false);
+    const userCreateLoading = ref(false);
+    const userCreateError   = ref('');
+    const userForm          = reactive({ username: '', email: '', password: '', group_id: '', is_active: true });
+
+    // ── Password change state ─────────────────────────────────────────────
+    const passwordUser  = ref(null);
+    const pwReturnView  = ref('users');
+    const pwForm        = reactive({ password: '', confirm: '' });
+    const showNewPw     = ref(false);
+    const showConfirmPw = ref(false);
+    const pwLoading     = ref(false);
+    const pwError       = ref('');
+    const pwSuccess     = ref(false);
+
+    const filteredUsers = computed(() => {
+      const q = userSearch.value.trim().toLowerCase();
+      if (!q) return users.value;
+      return users.value.filter(u =>
+        u.username?.toLowerCase().includes(q) ||
+        u.email?.toLowerCase().includes(q) ||
+        u.group_name?.toLowerCase().includes(q)
+      );
+    });
+
+    const isAdmin  = computed(() => user.value?.group_name?.toLowerCase() === 'admin');
+    const homeView = computed(() => isAdmin.value ? 'users' : 'list');
 
     // ── List state ────────────────────────────────────────────────────────
     const quotations        = ref([]);
@@ -814,12 +1164,127 @@ export default {
       return body;
     };
 
+    // ── Users functions (admin) ───────────────────────────────────────────
+    const fetchUsers = async () => {
+      usersLoading.value = true;
+      usersError.value   = '';
+      try {
+        const data = await apiFetch('/users');
+        users.value = data.data ?? data;
+      } catch (err) {
+        if (err.response?.status === 401) { logout(); return; }
+        usersError.value = err.response?.data?.error || 'Failed to load users.';
+      } finally {
+        usersLoading.value = false;
+      }
+    };
+
+    const openUser = (u) => {
+      selectedUser.value = u;
+      view.value = 'list';
+      fetchQuotations(u.id);
+    };
+
+    const goToUsers = () => {
+      selectedUser.value = null;
+      view.value = 'users';
+      fetchUsers();
+    };
+
+    const fetchGroups = async () => {
+      groupsLoading.value = true;
+      try {
+        const data = await apiFetch('/groups');
+        groups.value = data.data ?? data;
+      } catch (_) {}
+      finally { groupsLoading.value = false; }
+    };
+
+    const goToUserCreate = () => {
+      userCreateError.value = '';
+      showUserPw.value = false;
+      Object.assign(userForm, { username: '', email: '', password: '', group_id: '', is_active: true });
+      if (!groups.value.length) fetchGroups();
+      view.value = 'user-create';
+    };
+
+    const submitUser = async () => {
+      userCreateError.value   = '';
+      userCreateLoading.value = true;
+      try {
+        await apiFetch('/users', {
+          method: 'POST',
+          body: JSON.stringify({
+            username:  userForm.username.trim(),
+            email:     userForm.email.trim(),
+            password:  userForm.password,
+            group_id:  userForm.group_id,
+            is_active: userForm.is_active ? 1 : 0,
+          }),
+        });
+        goToUsers();
+      } catch (err) {
+        const d = err.response?.data;
+        userCreateError.value = d?.details || d?.error || 'Failed to create user. Please try again.';
+        if (err.response?.status === 401) { setTimeout(logout, 2000); }
+      } finally {
+        userCreateLoading.value = false;
+      }
+    };
+
+    const _openPasswordView = (u, returnView) => {
+      passwordUser.value  = u;
+      pwReturnView.value  = returnView;
+      pwForm.password     = '';
+      pwForm.confirm      = '';
+      pwError.value       = '';
+      pwSuccess.value     = false;
+      showNewPw.value     = false;
+      showConfirmPw.value = false;
+      view.value = 'user-password';
+    };
+
+    const goToChangePassword = (u) => _openPasswordView(u, 'users');
+    const goToMyPassword     = ()  => _openPasswordView(user.value, homeView.value);
+
+    const submitPassword = async () => {
+      pwError.value   = '';
+      pwSuccess.value = false;
+
+      if (pwForm.password.length < 6) {
+        pwError.value = 'Password must be at least 6 characters.';
+        return;
+      }
+      if (pwForm.password !== pwForm.confirm) {
+        pwError.value = 'Passwords do not match.';
+        return;
+      }
+
+      pwLoading.value = true;
+      try {
+        await apiFetch(`/users/${passwordUser.value.id}/password`, {
+          method: 'PUT',
+          body: JSON.stringify({ password: pwForm.password }),
+        });
+        pwSuccess.value = true;
+        pwForm.password = '';
+        pwForm.confirm  = '';
+      } catch (err) {
+        const d = err.response?.data;
+        pwError.value = d?.details || d?.error || 'Failed to update password. Please try again.';
+        if (err.response?.status === 401) { setTimeout(logout, 2000); }
+      } finally {
+        pwLoading.value = false;
+      }
+    };
+
     // ── List functions ────────────────────────────────────────────────────
-    const fetchQuotations = async () => {
+    const fetchQuotations = async (userId = null) => {
       quotationsLoading.value = true;
       quotationsError.value   = '';
       try {
-        const data = await apiFetch('/quotations');
+        const path = userId ? `/quotations?user_id=${userId}` : '/quotations';
+        const data = await apiFetch(path);
         quotations.value = data.data ?? data;
       } catch (err) {
         if (err.response?.status === 401) { logout(); return; }
@@ -1121,13 +1586,31 @@ ${images   ? `<div class="imgs">${images}</div>` : ''}
     };
 
     const goToList = () => {
+      selectedUser.value = null;
       view.value = 'list';
       fetchQuotations();
     };
 
     const goBack = () => {
-      if (view.value === 'create' && isEditing.value) {
+      if (view.value === 'user-password') {
+        if (pwReturnView.value === 'users') goToUsers();
+        else goToList();
+      } else if (view.value === 'user-create') {
+        goToUsers();
+      } else if (view.value === 'create' && isEditing.value) {
         cancelEdit();
+      } else if (view.value === 'create') {
+        if (selectedUser.value) {
+          view.value = 'list';
+          fetchQuotations(selectedUser.value.id);
+        } else {
+          goToList();
+        }
+      } else if (view.value === 'detail') {
+        view.value = 'list';
+        fetchQuotations(selectedUser.value?.id || null);
+      } else if (view.value === 'list' && selectedUser.value) {
+        goToUsers();
       } else {
         goToList();
       }
@@ -1151,7 +1634,11 @@ ${images   ? `<div class="imgs">${images}</div>` : ''}
         localStorage.setItem('qt_user',  JSON.stringify(data.user));
         user.value = data.user;
         loginForm.password = '';
-        goToList();
+        if (data.user.group_name?.toLowerCase() === 'admin') {
+          goToUsers();
+        } else {
+          goToList();
+        }
       } catch (err) {
         loginError.value = err.response?.data?.error || 'Login failed. Check your credentials.';
       } finally {
@@ -1167,11 +1654,14 @@ ${images   ? `<div class="imgs">${images}</div>` : ''}
       loginForm.login      = '';
       loginForm.password   = '';
       loginError.value     = '';
-      quotations.value  = [];
-      listFilter.value  = 'all';
-      searchQuery.value = '';
-      dateFrom.value    = '';
-      dateTo.value      = '';
+      quotations.value     = [];
+      listFilter.value     = 'all';
+      searchQuery.value    = '';
+      dateFrom.value       = '';
+      dateTo.value         = '';
+      users.value          = [];
+      selectedUser.value   = null;
+      userSearch.value     = '';
     };
 
     // ── Quotation ─────────────────────────────────────────────────────────
@@ -1255,19 +1745,25 @@ ${images   ? `<div class="imgs">${images}</div>` : ''}
       view.value = 'create';
     };
 
+    watch(view, () => { menuOpen.value = false; });
+
     // ── Restore session on mount ──────────────────────────────────────────
     onMounted(() => {
       const token  = localStorage.getItem('qt_token');
       const stored = localStorage.getItem('qt_user');
       if (token && stored) {
         user.value = JSON.parse(stored);
-        goToList();
+        if (user.value.group_name?.toLowerCase() === 'admin') {
+          goToUsers();
+        } else {
+          goToList();
+        }
       }
     });
 
     return {
       f7params,
-      view, user, showPw,
+      view, user, showPw, menuOpen,
       loginLoading, loginError, loginForm, doLogin, logout,
       quoteLoading, quoteError, qForm, totals, createdQuote,
       submitQuote, addItem, removeItem, resetForm,
@@ -1279,6 +1775,12 @@ ${images   ? `<div class="imgs">${images}</div>` : ''}
       uploadedImages, removedImageSlots, onImgsSelected, onImgDrop, removeUploadedImage,
       isEditing, editStatus, goToEdit, cancelEdit, submitEdit, goBack,
       lineTotal, recalc, fmt,
+      users, usersLoading, usersError, userSearch, filteredUsers,
+      selectedUser, isAdmin, homeView, fetchUsers, openUser, goToUsers,
+      groups, groupsLoading, showUserPw, userCreateLoading, userCreateError, userForm,
+      goToUserCreate, submitUser,
+      passwordUser, pwForm, showNewPw, showConfirmPw, pwLoading, pwError, pwSuccess,
+      goToChangePassword, goToMyPassword, submitPassword,
     };
   }
 };
