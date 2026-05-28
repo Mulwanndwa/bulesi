@@ -106,20 +106,23 @@ class Api extends CI_Controller {
         // ── GET /api/users ────────────────────────────────────────────
         if ($method === 'get') {
             $rows = $this->db
-                ->select('u.id, u.username, u.email, u.is_active, u.created_at, u.updated_at, g.name AS group_name')
+                ->select('u.id, u.username, u.email, u.is_active, u.created_at, u.updated_at, g.name AS group_name, COUNT(q.id) AS quotations_count')
                 ->from('auth_users u')
                 ->join('user_groups g', 'g.id = u.group_id', 'left')
+                ->join('quotations q', 'q.user_id = u.id AND q.is_read = 0', 'left')
+                ->group_by('u.id')
                 ->get()->result();
 
             $data = array_map(function($u) {
                 return [
-                    'id'         => (int)$u->id,
-                    'username'   => $u->username,
-                    'email'      => $u->email,
-                    'group_name' => $u->group_name,
-                    'is_active'  => (bool)$u->is_active,
-                    'created_at' => $u->created_at,
-                    'updated_at' => $u->updated_at,
+                    'id'               => (int)$u->id,
+                    'username'         => $u->username,
+                    'email'            => $u->email,
+                    'group_name'       => $u->group_name,
+                    'is_active'        => (bool)$u->is_active,
+                    'quotations_count' => (int)$u->quotations_count,
+                    'created_at'       => $u->created_at,
+                    'updated_at'       => $u->updated_at,
                 ];
             }, $rows);
 
@@ -283,6 +286,7 @@ class Api extends CI_Controller {
                 'quote_date'     => $q->quote_date,
                 'valid_until'    => $q->valid_until,
                 'notes'          => $q->notes,
+                'is_read'        => (bool)$q->is_read,
                 'created_by'     => $q->created_by,
                 'created_at'     => $q->created_at,
                 'updated_at'     => $q->updated_at,
@@ -337,6 +341,11 @@ class Api extends CI_Controller {
 
             $items = $this->Quotation_model->get_items((int)$id);
 
+            if (!$quote->is_read) {
+                $this->db->where('id', (int)$id)->update('quotations', ['is_read' => 1]);
+                $quote->is_read = 1;
+            }
+
             return $this->_json([
                 'success' => TRUE,
                 'data'    => [
@@ -355,6 +364,7 @@ class Api extends CI_Controller {
                     'quote_date'     => $quote->quote_date,
                     'valid_until'    => $quote->valid_until,
                     'notes'          => $quote->notes,
+                    'is_read'        => (bool)$quote->is_read,
                     'created_by'     => $quote->created_by,
                     'created_at'     => $quote->created_at,
                     'updated_at'     => $quote->updated_at,
