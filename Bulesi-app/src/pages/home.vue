@@ -22,10 +22,10 @@
             <span></span><span></span><span></span>
           </button>
 
-          <!-- overlay to close on outside click -->
-          <div v-if="menuOpen" class="nav-menu-overlay" @click="menuOpen = false"></div>
-
-          <div v-if="menuOpen" class="nav-dropdown" @click.stop>
+          <!-- Teleport to body so the navbar stacking context cannot clip it -->
+          <Teleport to="body">
+            <div v-if="menuOpen" class="nav-menu-overlay" @click="menuOpen = false"></div>
+            <div v-if="menuOpen" class="nav-dropdown" @click.stop>
             <!-- user pill -->
             <div class="nav-drop-user">
               <div class="user-avatar" style="width:32px;height:32px;flex-shrink:0">
@@ -86,6 +86,7 @@
               Sign Out
             </button>
           </div>
+          </Teleport>
         </div>
       </f7-nav-right>
     </f7-navbar>
