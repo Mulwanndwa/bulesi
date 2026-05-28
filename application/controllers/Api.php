@@ -13,6 +13,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *   POST /api/login      — exchange credentials for a Bearer token
  *   GET  /api/users      — list active users (requires Bearer token)
  *   POST /api/users      — create a new user (requires Bearer token)
+ *   PUT  /api/users/:id/password — update a user's password (requires Bearer token)
  *   POST /api/quotation  — create a new quotation
  */
 class Api extends CI_Controller {
@@ -199,6 +200,42 @@ class Api extends CI_Controller {
         return $this->_json(['success' => TRUE, 'data' => $data]);
     }
 
+    // ── PUT /api/users/:id/password ───────────────────────────────────
+    public function user_password($id = NULL)
+    {
+        if ($this->input->method() !== 'put') {
+            return $this->_json(['error' => 'Method Not Allowed'], 405);
+        }
+
+        if (!$id || !ctype_digit((string)$id)) {
+            return $this->_json(['error' => 'A numeric user ID is required.'], 400);
+        }
+
+        $auth = $this->_auth();
+        if (!$auth) {
+            return $this->_json(['error' => 'Unauthorized. Provide a valid Bearer token.'], 401);
+        }
+
+        $target = $this->User_model->get_by_id((int)$id);
+        if (!$target) {
+            return $this->_json(['error' => 'User not found.'], 404);
+        }
+
+        $body        = $this->_body();
+        $new_password = $body['password'] ?? '';
+
+        if (!$new_password) {
+            return $this->_json(['error' => 'Validation failed', 'details' => ['password is required']], 422);
+        }
+        if (strlen($new_password) < 6) {
+            return $this->_json(['error' => 'Validation failed', 'details' => ['password must be at least 6 characters']], 422);
+        }
+
+        $this->User_model->update((int)$id, ['password' => $new_password]);
+
+        return $this->_json(['success' => TRUE, 'message' => 'Password updated.']);
+    }
+
     // ── GET /api/quotations ───────────────────────────────────────────
     public function quotations()
     {
@@ -214,7 +251,9 @@ class Api extends CI_Controller {
         $valid_statuses = ['draft','sent','accepted','in_progress','completed','invoiced','rejected','cancelled'];
         $status     = $this->input->get('status') ?: 'all';
         $with_items = (bool)$this->input->get('with_items');
-        $user_id    = $this->input->get('user_id') ? (int)$this->input->get('user_id') : NULL;
+        $user_id    = (int)$user->group_id === 1
+            ? ($this->input->get('user_id') ? (int)$this->input->get('user_id') : NULL)
+            : (int)$user->id;
 
         if ($status !== 'all' && !in_array($status, $valid_statuses)) {
             return $this->_json([
