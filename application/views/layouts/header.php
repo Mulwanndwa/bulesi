@@ -89,7 +89,7 @@
 <!-- Sidebar -->
 <div id="sidebar">
     <a href="<?= base_url('dashboard') ?>" class="sb-brand">
-        <i class="bi bi-hammer"></i> Demo QT
+        <i class="bi bi-hammer"></i> Bulesi
     </a>
     <nav>
         <div class="sb-label">Overview</div>
