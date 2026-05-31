@@ -53,6 +53,10 @@ $route['default_controller'] = 'auth';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
 
+$route['reports/sales/custom/(:any)/(:any)'] = 'Reports/sales_custom/$1/$2';
+$route['reports/sales/(:any)']               = 'Reports/sales/$1';
+$route['reports/sales']                      = 'Reports/sales';
+
 $route['api/users/(:num)/password']   = 'Api/user_password/$1';
 $route['api/quotation/(:num)/images'] = 'Api/quotation_images/$1';
 $route['api/push-token']              = 'Api/push_token';

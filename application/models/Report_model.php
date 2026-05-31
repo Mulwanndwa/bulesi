@@ -102,6 +102,109 @@ class Report_model extends CI_Model {
         ", [$start, $end, (int)$limit])->result();
     }
 
+    public function get_sales_kpis($start, $end)
+    {
+        return $this->db->query("
+            SELECT
+                COUNT(*)                        AS total_sales,
+                COALESCE(SUM(total), 0)         AS total_revenue,
+                COALESCE(AVG(total), 0)         AS avg_sale_value,
+                COALESCE(SUM(subtotal), 0)      AS total_subtotal,
+                COALESCE(SUM(vat_amount), 0)    AS total_vat,
+                COUNT(DISTINCT customer_name)   AS unique_customers
+            FROM quotations
+            WHERE status IN ('completed','invoiced')
+              AND quote_date BETWEEN ? AND ?
+        ", [$start, $end])->row();
+    }
+
+    public function get_sales_by_user($start, $end)
+    {
+        return $this->db->query("
+            SELECT
+                COALESCE(u.username, 'Unknown') AS username,
+                COALESCE(g.name, '—')           AS group_name,
+                COUNT(q.id)                     AS sales_count,
+                COALESCE(SUM(q.total), 0)       AS total_revenue,
+                COALESCE(AVG(q.total), 0)       AS avg_value,
+                MAX(q.quote_date)               AS last_sale
+            FROM quotations q
+            LEFT JOIN auth_users u ON u.id = q.user_id
+            LEFT JOIN user_groups g ON g.id = u.group_id
+            WHERE q.status IN ('completed','invoiced')
+              AND q.quote_date BETWEEN ? AND ?
+            GROUP BY q.user_id, u.username, g.name
+            ORDER BY total_revenue DESC
+        ", [$start, $end])->result();
+    }
+
+    public function get_sales_by_company($start, $end)
+    {
+        return $this->db->query("
+            SELECT
+                COALESCE(c.name, 'No Company') AS company_name,
+                COUNT(q.id)                    AS sales_count,
+                COALESCE(SUM(q.total), 0)      AS total_revenue,
+                COALESCE(AVG(q.total), 0)      AS avg_value
+            FROM quotations q
+            LEFT JOIN auth_users u ON u.id = q.user_id
+            LEFT JOIN companies c ON c.id = u.company_id
+            WHERE q.status IN ('completed','invoiced')
+              AND q.quote_date BETWEEN ? AND ?
+            GROUP BY u.company_id, c.name
+            ORDER BY total_revenue DESC
+        ", [$start, $end])->result();
+    }
+
+    public function get_sales_monthly($year)
+    {
+        $rows = $this->db->query("
+            SELECT
+                MONTH(quote_date)               AS month,
+                COUNT(*)                        AS sales_count,
+                COALESCE(SUM(total), 0)         AS revenue,
+                COALESCE(SUM(vat_amount), 0)    AS vat_collected
+            FROM quotations
+            WHERE status IN ('completed','invoiced')
+              AND YEAR(quote_date) = ?
+            GROUP BY MONTH(quote_date)
+            ORDER BY month
+        ", [(int)$year])->result();
+
+        $months = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $months[$m] = (object)['month' => $m, 'sales_count' => 0, 'revenue' => 0, 'vat_collected' => 0];
+        }
+        foreach ($rows as $row) {
+            $months[(int)$row->month] = $row;
+        }
+        return array_values($months);
+    }
+
+    public function get_sales_list($start, $end, $limit = 50)
+    {
+        return $this->db->query("
+            SELECT
+                q.quote_number,
+                q.customer_name,
+                q.customer_phone,
+                q.total,
+                q.vat_amount,
+                q.subtotal,
+                q.status,
+                q.quote_date,
+                COALESCE(u.username, '—') AS sold_by,
+                COALESCE(c.name, '—')     AS company_name
+            FROM quotations q
+            LEFT JOIN auth_users u ON u.id = q.user_id
+            LEFT JOIN companies c ON c.id = u.company_id
+            WHERE q.status IN ('completed','invoiced')
+              AND q.quote_date BETWEEN ? AND ?
+            ORDER BY q.quote_date DESC
+            LIMIT ?
+        ", [$start, $end, (int)$limit])->result();
+    }
+
     public function get_weekly_activity($start, $end)
     {
         return $this->db->query("

@@ -10,13 +10,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *   (token is stored in auth_users.api_token)
  *
  * Endpoints:
- *   POST /api/login      — exchange credentials for a Bearer token
- *   GET  /api/users      — list active users (requires Bearer token)
- *   POST /api/users      — create a new user (requires Bearer token)
+ *   POST /api/login           — exchange credentials for a Bearer token
+ *   GET  /api/users           — list active users (requires Bearer token)
+ *   POST /api/users           — create a new user (requires Bearer token)
  *   PUT  /api/users/:id/password — update a user's password (requires Bearer token)
- *   POST /api/push-token — update the authenticated user's push token
- *   GET  /api/stock      — list active stock items grouped by category (requires Bearer token)
- *   POST /api/quotation  — create a new quotation
+ *   POST /api/push-token      — update the authenticated user's push token
+ *   GET  /api/stock           — list active stock items grouped by category (requires Bearer token)
+ *   GET  /api/companies       — list companies with their linked users (requires Bearer token)
+ *   POST /api/quotation       — create a new quotation
  */
 class Api extends CI_Controller {
 
@@ -40,6 +41,7 @@ class Api extends CI_Controller {
 
         $this->load->model('Quotation_model');
         $this->load->model('User_model');
+        $this->load->model('Company_model');
         $this->config->load('push');
         $this->load->helper('push');
     }
@@ -61,7 +63,7 @@ class Api extends CI_Controller {
 
         $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'u.email' : 'u.username';
         $user  = $this->db
-            ->select('u.*, g.name AS group_name, c.name AS company_name')
+            ->select('u.*, g.name AS group_name, c.name AS company_name, c.logo_url AS company_logo_url')
             ->from('auth_users u')
             ->join('user_groups g', 'g.id = u.group_id', 'left')
             ->join('companies c', 'c.id = u.company_id', 'left')
@@ -96,8 +98,9 @@ class Api extends CI_Controller {
                 'email'        => $user->email,
                 'group_id'     => (int)$user->group_id,
                 'group_name'   => $user->group_name,
-                'company_id'   => $user->company_id ? (int)$user->company_id : NULL,
-                'company_name' => $user->company_name,
+                'company_id'       => $user->company_id ? (int)$user->company_id : NULL,
+                'company_name'     => $user->company_name,
+                'company_logo_url' => $user->company_logo_url ?: NULL,
             ],
         ]);
     }
@@ -197,6 +200,61 @@ class Api extends CI_Controller {
                 'created_at' => $created->created_at,
             ],
         ], 201);
+    }
+
+    // ── GET /api/companies ────────────────────────────────────────────
+    public function companies()
+    {
+        if ($this->input->method() !== 'get') {
+            return $this->_json(['error' => 'Method Not Allowed'], 405);
+        }
+
+        $user = $this->_auth();
+        if (!$user) {
+            return $this->_json(['error' => 'Unauthorized. Provide a valid Bearer token.'], 401);
+        }
+
+        $companies = $this->Company_model->get_all();
+
+        // Fetch all users with their group names in one query, keyed by company_id
+        $user_rows = $this->db
+            ->select('u.id, u.username, u.email, u.is_active, u.company_id, g.name AS group_name')
+            ->from('auth_users u')
+            ->join('user_groups g', 'g.id = u.group_id', 'left')
+            ->where('u.company_id IS NOT NULL', NULL, FALSE)
+            ->get()->result();
+
+        $users_by_company = [];
+        foreach ($user_rows as $u) {
+            $users_by_company[(int)$u->company_id][] = [
+                'id'         => (int)$u->id,
+                'username'   => $u->username,
+                'email'      => $u->email,
+                'group_name' => $u->group_name,
+                'is_active'  => (bool)$u->is_active,
+            ];
+        }
+
+        $data = array_map(function($c) use ($users_by_company) {
+            return [
+                'id'         => (int)$c->id,
+                'name'       => $c->name,
+                'address'    => $c->address,
+                'phone'      => $c->phone,
+                'email'      => $c->email,
+                'logo_url'   => !empty($c->logo) ? base_url($c->logo) : NULL,
+                'is_active'  => (bool)$c->is_active,
+                'created_at' => $c->created_at,
+                'updated_at' => $c->updated_at,
+                'users'      => $users_by_company[(int)$c->id] ?? [],
+            ];
+        }, $companies);
+
+        return $this->_json([
+            'success' => TRUE,
+            'count'   => count($data),
+            'data'    => $data,
+        ]);
     }
 
     // ── GET /api/groups ───────────────────────────────────────────────

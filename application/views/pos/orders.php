@@ -105,13 +105,15 @@ async function printOrder(id) {
         if (!data.success) { alert(data.error || 'Failed to load order.'); return; }
 
         const order = {
-            quoteNumber: data.quote.quote_number,
-            customer:    data.quote.customer_name,
-            notes:       data.quote.notes,
-            subtotal:    data.quote.subtotal,
-            vatAmount:   data.quote.vat_amount,
-            total:       data.quote.total,
-            createdAt:   data.quote.created_at,
+            quoteNumber:  data.quote.quote_number,
+            customer:     data.quote.customer_name,
+            notes:        data.quote.notes,
+            subtotal:     data.quote.subtotal,
+            vatAmount:    data.quote.vat_amount,
+            total:        data.quote.total,
+            createdAt:    data.quote.created_at,
+            companyName:  data.company?.name     || '',
+            companyLogo:  data.company?.logo_url || null,
         };
         PosPrint.printReceipt(order, data.items);
     } catch (e) {

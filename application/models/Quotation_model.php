@@ -26,10 +26,14 @@ class Quotation_model extends CI_Model {
 
     public function get_by_id($id)
     {
-        return $this->db->select('q.*, u.username AS created_by, t.name AS type_name')
+        return $this->db->select('q.*, u.username AS created_by, t.name AS type_name,
+                                  c.name AS company_name, c.logo AS company_logo,
+                                  c.phone AS company_phone, c.email AS company_email,
+                                  c.address AS company_address')
                         ->from('quotations q')
-                        ->join('auth_users u',      'u.id = q.user_id', 'left')
-                        ->join('quotation_types t', 't.id = q.type_id', 'left')
+                        ->join('auth_users u',      'u.id = q.user_id',      'left')
+                        ->join('quotation_types t', 't.id = q.type_id',      'left')
+                        ->join('companies c',       'c.id = u.company_id',   'left')
                         ->where('q.id', (int)$id)
                         ->get()->row();
     }

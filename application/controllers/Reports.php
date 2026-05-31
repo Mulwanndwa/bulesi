@@ -50,6 +50,51 @@ class Reports extends MY_Controller {
         $this->_render('custom', $start, $end);
     }
 
+    public function sales($period = 'this_month')
+    {
+        if (!array_key_exists($period, $this->periods)) {
+            $period = 'this_month';
+        }
+
+        list($start, $end) = $this->_date_range($period);
+        $this->_render_sales($period, $start, $end);
+    }
+
+    public function sales_custom($start = NULL, $end = NULL)
+    {
+        if (!$start || !$end || !strtotime($start) || !strtotime($end)) {
+            redirect('reports/sales');
+        }
+        if ($start > $end) {
+            list($start, $end) = [$end, $start];
+        }
+        $this->_render_sales('custom', $start, $end);
+    }
+
+    private function _render_sales($period, $start, $end)
+    {
+        $year = (int)date('Y', strtotime($start));
+
+        $data = [
+            'title'            => 'Sales Report',
+            'user'             => $this->current_user,
+            'period'           => $period,
+            'periods'          => $this->periods,
+            'start'            => $start,
+            'end'              => $end,
+            'year'             => $year,
+            'kpis'             => $this->Report_model->get_sales_kpis($start, $end),
+            'monthly'          => $this->Report_model->get_sales_monthly($year),
+            'by_user'          => $this->Report_model->get_sales_by_user($start, $end),
+            'by_company'       => $this->Report_model->get_sales_by_company($start, $end),
+            'sales_list'       => $this->Report_model->get_sales_list($start, $end),
+        ];
+
+        $this->load->view('layouts/header', $data);
+        $this->load->view('reports/sales', $data);
+        $this->load->view('layouts/footer');
+    }
+
     private function _render($period, $start, $end)
     {
         $year    = (int)date('Y', strtotime($start));

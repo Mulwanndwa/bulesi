@@ -113,8 +113,11 @@
             <i class="bi bi-boxes"></i> Stock
         </a>
         <div class="sb-label">Analytics</div>
-        <a href="<?= base_url('reports') ?>" class="sb-link <?= $this->uri->segment(1)==='reports'?'active':'' ?>">
+        <a href="<?= base_url('reports') ?>" class="sb-link <?= ($this->uri->segment(1)==='reports' && $this->uri->segment(2)!=='sales')?'active':'' ?>">
             <i class="bi bi-bar-chart-line-fill"></i> Reports
+        </a>
+        <a href="<?= base_url('reports/sales') ?>" class="sb-link <?= ($this->uri->segment(1)==='reports' && $this->uri->segment(2)==='sales')?'active':'' ?>">
+            <i class="bi bi-cash-coin"></i> Sales Report
         </a>
         <?php if (in_array($user['group_name'] ?? '', ['Admin','Manager'])): ?>
         <div class="sb-label">Integrations</div>

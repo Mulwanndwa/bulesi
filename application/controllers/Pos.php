@@ -87,6 +87,13 @@ class Pos extends MY_Controller {
             ->where('quotation_id', (int)$id)
             ->get('quotation_items')->result();
 
+        $company = $this->db
+            ->select('c.name, c.logo')
+            ->from('auth_users u')
+            ->join('companies c', 'c.id = u.company_id', 'left')
+            ->where('u.id', $this->current_user['id'])
+            ->get()->row();
+
         return $this->_json([
             'success' => TRUE,
             'quote'   => [
@@ -108,6 +115,10 @@ class Pos extends MY_Controller {
                     'line_total' => (float)$i->line_total,
                 ];
             }, $items),
+            'company' => [
+                'name'     => $company->name ?? '',
+                'logo_url' => !empty($company->logo) ? base_url($company->logo) : NULL,
+            ],
         ]);
     }
 
