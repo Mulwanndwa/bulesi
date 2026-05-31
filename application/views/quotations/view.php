@@ -170,6 +170,27 @@
         </div>
         <?php endif; ?>
 
+        <!-- Signatures -->
+        <div class="border-top pt-4 mt-4" style="margin-top:2.5rem!important">
+            <div class="row">
+                <div class="col-5">
+                    <div style="border-top:1px solid #000;padding-top:4px;margin-top:48px">
+                        <span style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Authorised Signature</span>
+                        <div style="font-size:.72rem;color:#666;margin-top:2px">Name: ___________________________</div>
+                        <div style="font-size:.72rem;color:#666;margin-top:6px">Date: ____________________________</div>
+                    </div>
+                </div>
+                <div class="col-2"></div>
+                <div class="col-5">
+                    <div style="border-top:1px solid #000;padding-top:4px;margin-top:48px">
+                        <span style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Customer Signature</span>
+                        <div style="font-size:.72rem;color:#666;margin-top:2px">Name: ___________________________</div>
+                        <div style="font-size:.72rem;color:#666;margin-top:6px">Date: ____________________________</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 
