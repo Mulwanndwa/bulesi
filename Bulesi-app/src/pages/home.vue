@@ -1431,10 +1431,20 @@ export default {
     const buildQuotationHTML = (q) => {
       const coName    = user.value.company_name    || 'Bulise';
       const coLogoUrl = user.value.company_logo_url || '';
+      const coAddress = user.value.company_address  || '';
+      const coPhone   = user.value.company_phone    || '';
+      const coEmail   = user.value.company_email    || '';
+
+      const fmtDate = (iso) => {
+        if (!iso) return '';
+        const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        const [y, m, d] = iso.split('-');
+        return `${parseInt(d)} ${months[parseInt(m) - 1]} ${y}`;
+      };
 
       const rows = (q.items || []).map((i, n) => `
         <tr>
-          <td>${n + 1}</td>
+          <td class="c">${n + 1}</td>
           <td>${i.item_description}</td>
           <td>${i.unit || ''}</td>
           <td class="r">${i.quantity}</td>
@@ -1442,9 +1452,7 @@ export default {
           <td class="r"><strong>R&nbsp;${fmt(i.line_total ?? i.quantity * i.unit_price)}</strong></td>
         </tr>`).join('');
 
-      const images = (q.images || []).map(img =>
-        `<img src="${img.url}" alt="Image ${img.index}" style="max-width:180px;max-height:180px;object-fit:cover;border-radius:8px;margin:4px">`
-      ).join('');
+      const coContact = [coPhone, coEmail].filter(Boolean).join(' · ');
 
       return `<!DOCTYPE html><html lang="en"><head>
 <meta charset="utf-8">
@@ -1452,119 +1460,107 @@ export default {
 <title>Quotation ${q.quote_number}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#1a1a1a;padding:32px;max-width:740px;margin:0 auto}
-  /* Header */
-  .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding-bottom:20px;border-bottom:2.5px solid #e94560}
-  .co-brand{display:flex;align-items:center;gap:14px}
-  .co-logo{width:60px;height:60px;object-fit:cover;border-radius:10px;border:1px solid #e8e8e8;display:block;flex-shrink:0}
-  .co-name{font-size:20px;font-weight:800;letter-spacing:-.02em;color:#111}
-  .qt-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#e94560;margin-bottom:4px}
-  .qt-num{font-size:18px;font-weight:800;color:#111;text-align:right}
-  .qt-date{font-size:12px;color:#666;margin-top:3px;text-align:right}
-  /* Info grid */
-  .info{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;padding:16px;background:#f9f9f9;border-radius:8px}
-  .sec-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#aaa;margin-bottom:6px}
-  .cust-name{font-size:15px;font-weight:700;color:#111;margin-bottom:4px}
-  .meta{font-size:12px;color:#555;line-height:1.7}
-  /* Items table */
-  .items-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#aaa;margin-bottom:8px}
-  table{width:100%;border-collapse:collapse;margin-bottom:4px}
-  thead tr{border-bottom:2px solid #111}
-  th{padding:7px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#555}
-  td{padding:9px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align:top}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#1a1a1a;padding:36px 40px;max-width:760px;margin:0 auto}
+  /* ── Header ── */
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:22px;border-bottom:2px solid #e0e0e0}
+  .co-brand{display:flex;align-items:flex-start;gap:14px}
+  .co-logo{width:58px;height:58px;object-fit:cover;border-radius:8px;border:1px solid #e0e0e0;display:block;flex-shrink:0}
+  .co-name{font-size:17px;font-weight:800;color:#111;margin-bottom:3px}
+  .co-addr{font-size:11px;color:#666;margin-bottom:2px}
+  .co-contact{font-size:11px;color:#666}
+  .qt-right{text-align:right}
+  .qt-label{font-size:22px;font-weight:900;letter-spacing:.04em;color:#111;margin-bottom:6px}
+  .qt-num{font-size:13px;font-weight:700;color:#333}
+  .qt-date{font-size:12px;color:#666;margin-top:3px}
+  /* ── Bill To ── */
+  .bill{margin-bottom:22px}
+  .sec-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#999;margin-bottom:5px}
+  .cust-name{font-size:14px;font-weight:700;color:#111;margin-bottom:2px}
+  .cust-meta{font-size:12px;color:#555;line-height:1.6}
+  .desc-block{margin-bottom:20px}
+  .desc-text{font-size:12px;color:#555}
+  /* ── Table ── */
+  table{width:100%;border-collapse:collapse;margin-bottom:0}
+  table,th,td{border:1px solid #ddd}
+  th{background:#f5f5f5;padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#555;text-align:left}
+  td{padding:9px 10px;font-size:13px;vertical-align:middle}
   .r{text-align:right}
-  /* Totals */
-  .totals{width:280px;margin-left:auto;margin-top:12px;border-top:1px solid #e8e8e8;padding-top:10px}
-  .trow{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#555}
-  .tdiv{border-top:2px solid #111;margin:8px 0}
-  .tgrand{font-size:16px;font-weight:800;color:#111}
-  /* Notes */
-  .notes{margin-top:24px;padding:14px 16px;background:#f9f9f9;border-radius:8px;border-left:3px solid #e94560}
-  .notes-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#aaa;margin-bottom:6px}
+  .c{text-align:center}
+  .sum-lbl{text-align:right;color:#555;border-right:none}
+  .sum-val{text-align:right;font-weight:600;white-space:nowrap}
+  .grand-lbl{text-align:right;font-weight:800;font-size:14px;border-right:none}
+  .grand-val{text-align:right;font-weight:800;font-size:14px;white-space:nowrap}
+  /* ── Notes ── */
+  .notes{margin-top:20px;padding:12px 14px;background:#f9f9f9;border-left:3px solid #e94560}
+  .notes-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#aaa;margin-bottom:5px}
   .notes-body{font-size:12px;color:#444;line-height:1.6}
-  /* Signature */
-  .sig-section{margin-top:40px;padding-top:24px;border-top:1px solid #e8e8e8}
-  .sig-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#aaa;margin-bottom:20px}
-  .sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px}
-  .sig-block{}
-  .sig-line{border-bottom:1.5px solid #111;height:40px;margin-bottom:6px}
-  .sig-lbl{font-size:11px;color:#555}
-  .sig-sub{font-size:10px;color:#aaa;margin-top:2px}
-  .acceptance{font-size:11px;color:#888;line-height:1.6;margin-bottom:24px}
+  /* ── Signature ── */
+  .sig-section{margin-top:44px;padding-top:20px;border-top:1px solid #ddd}
+  .sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px}
+  .sig-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#333;margin-bottom:18px}
+  .sig-field{display:flex;align-items:baseline;gap:6px;margin-bottom:14px;font-size:12px;color:#555}
+  .sig-field span{flex:1;border-bottom:1px solid #aaa}
 </style>
 </head><body>
 
 <div class="hdr">
   <div class="co-brand">
     ${coLogoUrl ? `<img src="${coLogoUrl}" alt="${coName}" class="co-logo">` : ''}
-    <div class="co-name">${coName}</div>
+    <div>
+      <div class="co-name">${coName}</div>
+      ${coAddress ? `<div class="co-addr">${coAddress}</div>` : ''}
+      ${coContact ? `<div class="co-contact">${coContact}</div>` : ''}
+    </div>
   </div>
-  <div>
-    <div class="qt-label">Quotation</div>
+  <div class="qt-right">
+    <div class="qt-label">QUOTATION</div>
     <div class="qt-num">${q.quote_number}</div>
-    <div class="qt-date">${q.quote_date}</div>
+    <div class="qt-date"><strong>Date:</strong> ${fmtDate(q.quote_date)}</div>
+    ${q.valid_until ? `<div class="qt-date"><strong>Valid until:</strong> ${fmtDate(q.valid_until)}</div>` : ''}
   </div>
 </div>
 
-<div class="info">
-  <div>
-    <div class="sec-lbl">Bill To</div>
-    <div class="cust-name">${q.customer_name}</div>
-    <div class="meta">
-      ${q.customer_phone ? `${q.customer_phone}<br>` : ''}
-      ${q.customer_email ? `${q.customer_email}<br>` : ''}
-    </div>
-  </div>
-  <div>
-    <div class="sec-lbl">Quote Details</div>
-    <div class="meta">
-      <strong>Date:</strong> ${q.quote_date}<br>
-      ${q.valid_until ? `<strong>Valid until:</strong> ${q.valid_until}<br>` : ''}
-      ${q.created_by  ? `<strong>Prepared by:</strong> ${q.created_by}` : ''}
-    </div>
+<div class="bill">
+  <div class="sec-lbl">Bill To</div>
+  <div class="cust-name">${q.customer_name}</div>
+  <div class="cust-meta">
+    ${q.customer_phone ? `${q.customer_phone}<br>` : ''}
+    ${q.customer_email ? `${q.customer_email}` : ''}
   </div>
 </div>
 
-${q.description ? `<div style="margin-bottom:20px;font-size:12px;color:#555">${q.description}</div>` : ''}
+${q.description ? `<div class="desc-block"><div class="sec-lbl">Description</div><div class="desc-text">${q.description}</div></div>` : ''}
 
-<div class="items-lbl">Line Items</div>
 <table>
   <thead><tr>
-    <th style="width:28px">#</th>
+    <th style="width:32px">#</th>
     <th>Description</th>
-    <th style="width:55px">Unit</th>
+    <th style="width:58px">Unit</th>
     <th class="r" style="width:50px">Qty</th>
-    <th class="r" style="width:100px">Unit Price</th>
-    <th class="r" style="width:100px">Amount</th>
+    <th class="r" style="width:108px">Unit Price</th>
+    <th class="r" style="width:108px">Total</th>
   </tr></thead>
-  <tbody>${rows}</tbody>
+  <tbody>
+    ${rows}
+    <tr><td class="sum-lbl" colspan="5">Subtotal</td><td class="sum-val">R&nbsp;${fmt(q.subtotal)}</td></tr>
+    <tr><td class="sum-lbl" colspan="5">VAT (${q.vat_rate}%)</td><td class="sum-val">R&nbsp;${fmt(q.vat_amount)}</td></tr>
+    <tr><td class="grand-lbl" colspan="5">TOTAL</td><td class="grand-val">R&nbsp;${fmt(q.total)}</td></tr>
+  </tbody>
 </table>
-
-<div class="totals">
-  <div class="trow"><span>Subtotal</span><span>R&nbsp;${fmt(q.subtotal)}</span></div>
-  <div class="trow"><span>VAT (${q.vat_rate}%)</span><span>R&nbsp;${fmt(q.vat_amount)}</span></div>
-  <div class="tdiv"></div>
-  <div class="trow tgrand"><span>Total</span><span>R&nbsp;${fmt(q.total)}</span></div>
-</div>
 
 ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="notes-body">${q.notes}</div></div>` : ''}
 
 <div class="sig-section">
-  <div class="sig-title">Acceptance</div>
-  <div class="acceptance">
-    By signing below, the client acknowledges receipt of this quotation and accepts the terms, pricing,
-    and scope of work as outlined above.${q.valid_until ? ` This quotation is valid until <strong>${q.valid_until}</strong>.` : ''}
-  </div>
   <div class="sig-grid">
-    <div class="sig-block">
-      <div class="sig-line"></div>
-      <div class="sig-lbl">${coName}</div>
-      <div class="sig-sub">Authorised Signature &amp; Date</div>
+    <div>
+      <div class="sig-title">Authorised Signature</div>
+      <div class="sig-field">Name: <span>&nbsp;</span></div>
+      <div class="sig-field">Date: <span>&nbsp;</span></div>
     </div>
-    <div class="sig-block">
-      <div class="sig-line"></div>
-      <div class="sig-lbl">${q.customer_name}</div>
-      <div class="sig-sub">Client Signature &amp; Date</div>
+    <div>
+      <div class="sig-title">Customer Signature</div>
+      <div class="sig-field">Name: <span>&nbsp;</span></div>
+      <div class="sig-field">Date: <span>&nbsp;</span></div>
     </div>
   </div>
 </div>
