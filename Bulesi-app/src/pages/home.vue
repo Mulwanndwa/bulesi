@@ -43,6 +43,13 @@
             <div class="nav-drop-divider"></div>
 
             <!-- Refresh -->
+            <button v-if="view === 'companies'" class="nav-drop-item" @click="fetchCompanies(); menuOpen = false">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+              Refresh
+            </button>
             <button v-if="view === 'users'" class="nav-drop-item" @click="fetchUsers(); menuOpen = false">
               <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
@@ -168,12 +175,81 @@
       </div>
     </template>
 
+    <!-- ── COMPANIES (group_id=1) ──────────────────────────────────────── -->
+    <template v-if="view === 'companies'">
+
+      <div class="list-header">
+        <div class="list-header-row">
+          <div class="list-header-title">Companies</div>
+          <span v-if="!companiesLoading" class="list-count-pill">{{ companies.length }}</span>
+        </div>
+      </div>
+
+      <div v-if="companiesLoading" class="list-spinner">
+        <f7-preloader :size="36"></f7-preloader>
+      </div>
+
+      <div v-else-if="companiesError" style="padding:16px">
+        <div class="alert-err">
+          <i class="bi bi-exclamation-circle-fill"></i>
+          <span>{{ companiesError }}</span>
+        </div>
+      </div>
+
+      <div v-else-if="!companies.length" class="list-empty">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <p>No companies found</p>
+      </div>
+
+      <div v-else class="qt-list">
+        <div
+          v-for="c in companies"
+          :key="c.id"
+          class="qt-card"
+          @click="openCompany(c)"
+          style="cursor:pointer"
+        >
+          <div class="qt-card-main">
+            <div class="company-logo-wrap">
+              <img v-if="c.logo_url" :src="c.logo_url" :alt="c.name" class="company-logo" />
+              <div v-else class="company-logo-placeholder">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                  <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+              </div>
+            </div>
+            <div class="qt-card-left">
+              <div class="qt-number">{{ c.name }}</div>
+              <div class="qt-customer">{{ c.address || '—' }}</div>
+            </div>
+            <div class="qt-card-right">
+              <span class="st-badge" style="background:rgba(255,255,255,.12)">
+                {{ c.users?.length ?? 0 }} user{{ c.users?.length !== 1 ? 's' : '' }}
+              </span>
+              <span :class="['st-badge', c.is_active ? 'st-accepted' : 'st-cancelled']" style="margin-top:4px">
+                {{ c.is_active ? 'active' : 'inactive' }}
+              </span>
+            </div>
+          </div>
+          <div class="qt-card-footer">
+            <span v-if="c.phone"><i class="bi bi-phone"></i> {{ c.phone }}</span>
+            <span v-if="c.email"><i class="bi bi-envelope"></i> {{ c.email }}</span>
+          </div>
+        </div>
+      </div>
+
+    </template>
+
     <!-- ── USERS (admin) ─────────────────────────────────────────────── -->
     <template v-if="view === 'users'">
 
       <div class="list-header">
         <div class="list-header-row">
-          <div class="list-header-title">Staff</div>
+          <div class="list-header-title">{{ selectedCompany ? selectedCompany.name : 'Staff' }}</div>
           <span v-if="!usersLoading" class="list-count-pill">{{ filteredUsers.length }}</span>
         </div>
         <div class="search-bar-wrap">
@@ -942,6 +1018,7 @@
 
 <script>
 import { ref, reactive, computed, onMounted, watch } from 'vue';
+import Push from '../js/push.js';
 
 const API_BASE = 'http://mul-admin.com/api';
 
@@ -974,6 +1051,10 @@ export default {
     const selectedUser      = ref(null);
     const groups            = ref([]);
     const groupsLoading     = ref(false);
+    const companies         = ref([]);
+    const companiesLoading  = ref(false);
+    const companiesError    = ref('');
+    const selectedCompany   = ref(null);
     const showUserPw        = ref(false);
     const userCreateLoading = ref(false);
     const userCreateError   = ref('');
@@ -1000,7 +1081,7 @@ export default {
     });
 
     const isAdmin  = computed(() => user.value?.group_name?.toLowerCase() === 'admin');
-    const homeView = computed(() => isAdmin.value ? 'users' : 'list');
+    const homeView = computed(() => user.value?.group_id === 1 ? 'companies' : 'list');
 
     // ── List state ────────────────────────────────────────────────────────
     const quotations        = ref([]);
@@ -1175,6 +1256,7 @@ export default {
       try {
         const data = await apiFetch('/users');
         users.value = data.data ?? data;
+        initPush(); 
       } catch (err) {
         if (err.response?.status === 401) { logout(); return; }
         usersError.value = err.response?.data?.error || 'Failed to load users.';
@@ -1202,6 +1284,33 @@ export default {
         groups.value = data.data ?? data;
       } catch (_) {}
       finally { groupsLoading.value = false; }
+    };
+
+    const fetchCompanies = async () => {
+      companiesLoading.value = true;
+      companiesError.value   = '';
+      try {
+        const data = await apiFetch('/companies');
+        companies.value = data.data ?? data;
+      } catch (err) {
+        if (err.response?.status === 401) { logout(); return; }
+        companiesError.value = err.response?.data?.error || 'Failed to load companies.';
+      } finally {
+        companiesLoading.value = false;
+      }
+    };
+
+    const goToCompanies = () => {
+      selectedCompany.value = null;
+      view.value = 'companies';
+      fetchCompanies();
+    };
+
+    const openCompany = (c) => {
+      selectedCompany.value = c;
+      users.value = c.users || [];
+      userSearch.value = '';
+      view.value = 'users';
     };
 
     const goToUserCreate = () => {
@@ -1287,7 +1396,10 @@ export default {
       quotationsLoading.value = true;
       quotationsError.value   = '';
       try {
-        const path = userId ? `/quotations?user_id=${userId}` : '/quotations';
+        const params = new URLSearchParams();
+        if (userId)             params.set('user_id',    userId);
+        const qs   = params.toString();
+        const path = `/quotations${qs ? '?' + qs : ''}`;
         const data = await apiFetch(path);
         quotations.value = data.data ?? data;
       } catch (err) {
@@ -1317,6 +1429,9 @@ export default {
     };
 
     const buildQuotationHTML = (q) => {
+      const coName    = user.value.company_name    || 'Bulise';
+      const coLogoUrl = user.value.company_logo_url || '';
+
       const rows = (q.items || []).map((i, n) => `
         <tr>
           <td>${n + 1}</td>
@@ -1338,7 +1453,9 @@ export default {
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#1a1a1a;padding:28px;max-width:720px;margin:0 auto}
-  .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid #e94560}
+  .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid #e94560}
+  .co-brand{display:flex;align-items:center;gap:12px}
+  .co-logo{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #eee;display:block;flex-shrink:0}
   .co-name{font-size:22px;font-weight:800;letter-spacing:-.02em}
   .co-sub{font-size:11px;opacity:.45;margin-top:3px}
   .q-num{font-size:20px;font-weight:800;color:#e94560;text-align:right}
@@ -1361,9 +1478,12 @@ export default {
 </style>
 </head><body>
 <div class="hdr">
-  <div>
-    <div class="co-name">Bulise</div>
-    <div class="co-sub">Quotation Management</div>
+  <div class="co-brand">
+    ${coLogoUrl ? `<img src="${coLogoUrl}" alt="${coName}" class="co-logo">` : ''}
+    <div>
+      <div class="co-name">${coName}</div>
+      <div class="co-sub">Quotation Management</div>
+    </div>
   </div>
   <div>
     <div class="q-num">${q.quote_number}</div>
@@ -1601,6 +1721,8 @@ ${images   ? `<div class="imgs">${images}</div>` : ''}
         else goToList();
       } else if (view.value === 'user-create') {
         goToUsers();
+      } else if (view.value === 'users' && selectedCompany.value) {
+        goToCompanies();
       } else if (view.value === 'create' && isEditing.value) {
         cancelEdit();
       } else if (view.value === 'create') {
@@ -1614,7 +1736,12 @@ ${images   ? `<div class="imgs">${images}</div>` : ''}
         view.value = 'list';
         fetchQuotations(selectedUser.value?.id || null);
       } else if (view.value === 'list' && selectedUser.value) {
-        goToUsers();
+        if (selectedCompany.value) {
+          selectedUser.value = null;
+          view.value = 'users';
+        } else {
+          goToUsers();
+        }
       } else {
         goToList();
       }
@@ -1632,14 +1759,18 @@ ${images   ? `<div class="imgs">${images}</div>` : ''}
       try {
         const data = await apiFetch('/login', {
           method: 'POST',
-          body: JSON.stringify({ login: loginForm.login, password: loginForm.password }),
+          body: JSON.stringify({
+            login:      loginForm.login,
+            password:   loginForm.password,
+          }),
         });
         localStorage.setItem('qt_token', data.token);
         localStorage.setItem('qt_user',  JSON.stringify(data.user));
         user.value = data.user;
         loginForm.password = '';
-        if (data.user.group_name?.toLowerCase() === 'admin') {
-          goToUsers();
+        Push.onLogin();   // send any FCM token that arrived before auth
+        if (data.user.group_id === 1) {
+          goToCompanies();
         } else {
           goToList();
         }
@@ -1663,9 +1794,11 @@ ${images   ? `<div class="imgs">${images}</div>` : ''}
       searchQuery.value    = '';
       dateFrom.value       = '';
       dateTo.value         = '';
-      users.value          = [];
-      selectedUser.value   = null;
-      userSearch.value     = '';
+      users.value           = [];
+      selectedUser.value    = null;
+      userSearch.value      = '';
+      companies.value       = [];
+      selectedCompany.value = null;
     };
 
     // ── Quotation ─────────────────────────────────────────────────────────
@@ -1751,17 +1884,42 @@ ${images   ? `<div class="imgs">${images}</div>` : ''}
 
     watch(view, () => { menuOpen.value = false; });
 
+    // ── Push notifications ────────────────────────────────────────────────
+    // alreadyLoggedIn: true when restoring a session so onLogin() fires
+    // inside whenReady — after Push._ready is true — not before deviceready.
+    const initPush = (alreadyLoggedIn = false) => {
+      console.log('Initializing push notifications...',alreadyLoggedIn);
+      const whenReady = (cb) => {
+        if (window.cordova?.platformId) cb();
+        else document.addEventListener('deviceready', cb, { once: true });
+      };
+      whenReady(() => {
+        Push.init(
+          apiFetch,
+          (message) => {
+            if (!message.tap) return;
+            const qid = message.quotation_id || message.data?.quotation_id;
+            if (qid) openQuotation({ id: parseInt(qid) });
+          }
+        );
+        if (alreadyLoggedIn) Push.onLogin();
+      });
+    };
+
     // ── Restore session on mount ──────────────────────────────────────────
     onMounted(() => {
       const token  = localStorage.getItem('qt_token');
       const stored = localStorage.getItem('qt_user');
       if (token && stored) {
         user.value = JSON.parse(stored);
-        if (user.value.group_name?.toLowerCase() === 'admin') {
-          goToUsers();
+        initPush(true);   // deviceready → Push.init → Push.onLogin in sequence
+        if (user.value.group_id === 1) {
+          goToCompanies();
         } else {
           goToList();
         }
+      } else {
+        initPush();       // no session — init only, onLogin called on doLogin
       }
     });
 
@@ -1783,6 +1941,8 @@ ${images   ? `<div class="imgs">${images}</div>` : ''}
       selectedUser, isAdmin, homeView, fetchUsers, openUser, goToUsers,
       groups, groupsLoading, showUserPw, userCreateLoading, userCreateError, userForm,
       goToUserCreate, submitUser,
+      companies, companiesLoading, companiesError, fetchCompanies,
+      selectedCompany, goToCompanies, openCompany,
       passwordUser, pwForm, showNewPw, showConfirmPw, pwLoading, pwError, pwSuccess,
       goToChangePassword, goToMyPassword, submitPassword,
     };

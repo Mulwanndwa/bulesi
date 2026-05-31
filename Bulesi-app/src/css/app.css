@@ -835,6 +835,32 @@ background-color: red;
   line-height: 1;
 }
 
+/* ── Company logo ────────────────────────────────────────────────────── */
+.company-logo-wrap {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+}
+.company-logo {
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1.5px solid rgba(255,255,255,.12);
+  display: block;
+}
+.company-logo-placeholder {
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  background: rgba(233,69,96,.12);
+  border: 1.5px solid rgba(255,255,255,.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,.5);
+}
+
 /* ── Active toggle (user create form) ────────────────────────────────── */
 .uc-toggle {
   position: relative;
