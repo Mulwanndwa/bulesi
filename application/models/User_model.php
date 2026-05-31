@@ -6,9 +6,10 @@ class User_model extends CI_Model {
     private function _base_query()
     {
         return $this->db
-            ->select('u.*, g.name AS group_name')
+            ->select('u.*, g.name AS group_name, c.name AS company_name')
             ->from('auth_users u')
-            ->join('user_groups g', 'g.id = u.group_id', 'left');
+            ->join('user_groups g', 'g.id = u.group_id', 'left')
+            ->join('companies c', 'c.id = u.company_id', 'left');
     }
 
     public function get_all()

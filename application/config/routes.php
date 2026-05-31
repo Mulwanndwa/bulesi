@@ -55,3 +55,9 @@ $route['translate_uri_dashes'] = FALSE;
 
 $route['api/users/(:num)/password']   = 'Api/user_password/$1';
 $route['api/quotation/(:num)/images'] = 'Api/quotation_images/$1';
+$route['api/push-token']              = 'Api/push_token';
+
+$route['pos']                    = 'Pos/index';
+$route['pos/place_order']        = 'Pos/place_order';
+$route['pos/orders']             = 'Pos/orders';
+$route['pos/receipt/(:num)']     = 'Pos/receipt/$1';

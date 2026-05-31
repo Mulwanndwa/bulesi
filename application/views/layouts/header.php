@@ -124,6 +124,9 @@
         <?php endif; ?>
         <?php if (($user['group_name'] ?? '') === 'Admin'): ?>
         <div class="sb-label">System</div>
+        <a href="<?= base_url('companies') ?>" class="sb-link <?= $this->uri->segment(1)==='companies'?'active':'' ?>">
+            <i class="bi bi-building"></i> Companies
+        </a>
         <a href="<?= base_url('users') ?>" class="sb-link <?= $this->uri->segment(1)==='users'?'active':'' ?>">
             <i class="bi bi-people-fill"></i> Users
         </a>

@@ -50,6 +50,20 @@ $is_self = $is_edit && (int)$record->id === (int)$user['id'];
                         <div class="invalid-feedback"><?= form_error('group_id') ?></div>
                     </div>
 
+                    <!-- Company -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Company</label>
+                        <select name="company_id" class="form-select">
+                            <option value="">— No company —</option>
+                            <?php foreach ($companies as $co): ?>
+                            <option value="<?= $co->id ?>"
+                                <?= (int)set_value('company_id', $record->company_id ?? '') === (int)$co->id ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($co->name) ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
                     <!-- Active toggle -->
                     <div class="col-md-6 d-flex align-items-end pb-1">
                         <?php if ($is_self): ?>

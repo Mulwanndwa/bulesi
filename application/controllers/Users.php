@@ -8,6 +8,7 @@ class Users extends MY_Controller {
         parent::__construct();
         $this->require_group(['Admin']);
         $this->load->model('User_model');
+        $this->load->model('Company_model');
         $this->load->library('form_validation');
     }
 
@@ -28,11 +29,12 @@ class Users extends MY_Controller {
     public function create()
     {
         $data = [
-            'title'   => 'Add User',
-            'user'    => $this->current_user,
-            'is_edit' => FALSE,
-            'record'  => NULL,
-            'groups'  => $this->User_model->get_groups(),
+            'title'     => 'Add User',
+            'user'      => $this->current_user,
+            'is_edit'   => FALSE,
+            'record'    => NULL,
+            'groups'    => $this->User_model->get_groups(),
+            'companies' => $this->Company_model->get_active(),
         ];
         $this->load->view('layouts/header', $data);
         $this->load->view('users/form', $data);
@@ -63,12 +65,14 @@ class Users extends MY_Controller {
             return;
         }
 
+        $company_id = (int)$this->input->post('company_id') ?: NULL;
         $this->User_model->create([
-            'username'  => $username,
-            'email'     => $email,
-            'group_id'  => (int)$this->input->post('group_id'),
-            'password'  => $this->input->post('password'),
-            'is_active' => $this->input->post('is_active') ? 1 : 0,
+            'username'   => $username,
+            'email'      => $email,
+            'group_id'   => (int)$this->input->post('group_id'),
+            'company_id' => $company_id,
+            'password'   => $this->input->post('password'),
+            'is_active'  => $this->input->post('is_active') ? 1 : 0,
         ]);
 
         $this->session->set_flashdata('success', 'User created successfully.');
@@ -80,11 +84,12 @@ class Users extends MY_Controller {
     {
         $record = $this->_get_or_404($id);
         $data   = [
-            'title'   => 'Edit User',
-            'user'    => $this->current_user,
-            'is_edit' => TRUE,
-            'record'  => $record,
-            'groups'  => $this->User_model->get_groups(),
+            'title'     => 'Edit User',
+            'user'      => $this->current_user,
+            'is_edit'   => TRUE,
+            'record'    => $record,
+            'groups'    => $this->User_model->get_groups(),
+            'companies' => $this->Company_model->get_active(),
         ];
         $this->load->view('layouts/header', $data);
         $this->load->view('users/form', $data);
@@ -117,10 +122,11 @@ class Users extends MY_Controller {
         }
 
         $data = [
-            'username' => $username,
-            'email'    => $email,
-            'group_id' => (int)$this->input->post('group_id'),
-            'password' => $this->input->post('password'),
+            'username'   => $username,
+            'email'      => $email,
+            'group_id'   => (int)$this->input->post('group_id'),
+            'company_id' => (int)$this->input->post('company_id') ?: NULL,
+            'password'   => $this->input->post('password'),
         ];
 
         // Prevent admin from disabling or changing their own group

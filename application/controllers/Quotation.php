@@ -20,6 +20,8 @@ class Quotation extends MY_Controller {
         $this->load->model('Quotation_model');
         $this->load->model('Quotation_type_model');
         $this->load->library('form_validation');
+        $this->config->load('push');
+        $this->load->helper('push');
     }
 
     // ── List ──────────────────────────────────────────────────────────
@@ -99,6 +101,25 @@ class Quotation extends MY_Controller {
 
         $id = $this->Quotation_model->create($data, $items);
         if ($id) {
+            $quote = $this->Quotation_model->get_by_id($id);
+
+            $admin_tokens = $this->db
+                ->select('push_token')
+                ->where('group_id', 1)
+                ->where('is_active', 1)
+                ->where('push_token IS NOT NULL', NULL, FALSE)
+                ->get('auth_users')->result_array();
+
+            $tokens = array_column($admin_tokens, 'push_token');
+            if ($tokens) {
+                send_push(
+                    $tokens,
+                    'New Quotation',
+                    $quote->quote_number . ' — ' . $quote->customer_name,
+                    ['quotation_id' => (string)$id, 'quote_number' => $quote->quote_number]
+                );
+            }
+
             $this->session->set_flashdata('success', 'Quotation created successfully.');
             redirect('quotation/view/' . $id);
         } else {

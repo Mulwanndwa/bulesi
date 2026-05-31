@@ -14,6 +14,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *   GET  /api/users      — list active users (requires Bearer token)
  *   POST /api/users      — create a new user (requires Bearer token)
  *   PUT  /api/users/:id/password — update a user's password (requires Bearer token)
+ *   POST /api/push-token — update the authenticated user's push token
+ *   GET  /api/stock      — list active stock items grouped by category (requires Bearer token)
  *   POST /api/quotation  — create a new quotation
  */
 class Api extends CI_Controller {
@@ -38,6 +40,8 @@ class Api extends CI_Controller {
 
         $this->load->model('Quotation_model');
         $this->load->model('User_model');
+        $this->config->load('push');
+        $this->load->helper('push');
     }
 
     // ── POST /api/login ──────────────────────────────────────────────
@@ -57,9 +61,10 @@ class Api extends CI_Controller {
 
         $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'u.email' : 'u.username';
         $user  = $this->db
-            ->select('u.*, g.name AS group_name')
+            ->select('u.*, g.name AS group_name, c.name AS company_name')
             ->from('auth_users u')
             ->join('user_groups g', 'g.id = u.group_id', 'left')
+            ->join('companies c', 'c.id = u.company_id', 'left')
             ->where($field,      $login)
             ->where('u.is_active', 1)
             ->get()->row();
@@ -75,16 +80,24 @@ class Api extends CI_Controller {
             $this->db->where('id', $user->id)->update('auth_users', ['api_token' => $token]);
         }
 
+        // Persist push token if provided
+        $push_token = $this->_str($body['push_token'] ?? '');
+        if ($push_token) {
+            $this->db->where('id', $user->id)->update('auth_users', ['push_token' => $push_token]);
+        }
+
         return $this->_json([
             'success'    => TRUE,
             'token'      => $token,
             'token_type' => 'Bearer',
             'user'       => [
-                'id'         => (int)$user->id,
-                'username'   => $user->username,
-                'email'      => $user->email,
-                'group_id'   => (int)$user->group_id,
-                'group_name' => $user->group_name,
+                'id'           => (int)$user->id,
+                'username'     => $user->username,
+                'email'        => $user->email,
+                'group_id'     => (int)$user->group_id,
+                'group_name'   => $user->group_name,
+                'company_id'   => $user->company_id ? (int)$user->company_id : NULL,
+                'company_name' => $user->company_name,
             ],
         ]);
     }
@@ -106,9 +119,10 @@ class Api extends CI_Controller {
         // ── GET /api/users ────────────────────────────────────────────
         if ($method === 'get') {
             $rows = $this->db
-                ->select('u.id, u.username, u.email, u.is_active, u.created_at, u.updated_at, g.name AS group_name, COUNT(q.id) AS quotations_count')
+                ->select('u.id, u.username, u.email, u.is_active, u.created_at, u.updated_at, u.company_id, g.name AS group_name, c.name AS company_name, COUNT(q.id) AS quotations_count')
                 ->from('auth_users u')
                 ->join('user_groups g', 'g.id = u.group_id', 'left')
+                ->join('companies c', 'c.id = u.company_id', 'left')
                 ->join('quotations q', 'q.user_id = u.id AND q.is_read = 0', 'left')
                 ->group_by('u.id')
                 ->get()->result();
@@ -119,6 +133,8 @@ class Api extends CI_Controller {
                     'username'         => $u->username,
                     'email'            => $u->email,
                     'group_name'       => $u->group_name,
+                    'company_id'       => $u->company_id ? (int)$u->company_id : NULL,
+                    'company_name'     => $u->company_name,
                     'is_active'        => (bool)$u->is_active,
                     'quotations_count' => (int)$u->quotations_count,
                     'created_at'       => $u->created_at,
@@ -239,6 +255,83 @@ class Api extends CI_Controller {
         return $this->_json(['success' => TRUE, 'message' => 'Password updated.']);
     }
 
+    // ── POST /api/push-token ──────────────────────────────────────────
+    public function push_token()
+    {
+        if ($this->input->method() !== 'post') {
+            return $this->_json(['error' => 'Method Not Allowed'], 405);
+        }
+
+        $user = $this->_auth();
+        if (!$user) {
+            return $this->_json(['error' => 'Unauthorized. Provide a valid Bearer token.'], 401);
+        }
+
+        $body  = $this->_body();
+        $token = $this->_str($body['push_token'] ?? '');
+
+        if (!$token) {
+            return $this->_json(['error' => 'push_token is required'], 422);
+        }
+
+        $this->db->where('id', $user->id)->update('auth_users', ['push_token' => $token]);
+
+        return $this->_json(['success' => TRUE]);
+    }
+
+    // ── GET /api/stock ────────────────────────────────────────────────
+    public function stock()
+    {
+        if ($this->input->method() !== 'get') {
+            return $this->_json(['error' => 'Method Not Allowed'], 405);
+        }
+
+        $user = $this->_auth();
+        if (!$user) {
+            return $this->_json(['error' => 'Unauthorized. Provide a valid Bearer token.'], 401);
+        }
+
+        $categories = $this->db
+            ->order_by('name', 'ASC')
+            ->get('stock_categories')->result();
+
+        $items = $this->db
+            ->where('is_active', 1)
+            ->order_by('name', 'ASC')
+            ->get('stock_items')->result();
+
+        // Index items by category_id for O(1) grouping
+        $grouped = [];
+        foreach ($items as $item) {
+            $grouped[$item->category_id][] = [
+                'id'               => (int)$item->id,
+                'code'             => $item->code,
+                'name'             => $item->name,
+                'description'      => $item->description,
+                'unit'             => $item->unit,
+                'quantity_on_hand' => (float)$item->quantity_on_hand,
+                'unit_price'       => (float)$item->unit_price,
+                'location'         => $item->location,
+            ];
+        }
+
+        $data = [];
+        foreach ($categories as $cat) {
+            $data[] = [
+                'id'          => (int)$cat->id,
+                'name'        => $cat->name,
+                'description' => $cat->description,
+                'items'       => $grouped[$cat->id] ?? [],
+            ];
+        }
+
+        return $this->_json([
+            'success' => TRUE,
+            'count'   => count($data),
+            'data'    => $data,
+        ]);
+    }
+
     // ── GET /api/quotations ───────────────────────────────────────────
     public function quotations()
     {
@@ -249,6 +342,12 @@ class Api extends CI_Controller {
         $user = $this->_auth();
         if (!$user) {
             return $this->_json(['error' => 'Unauthorized. Provide a valid Bearer token.'], 401);
+        }
+
+        // Update push token if the client sends one along with this request
+        $push_token = $this->_str($this->input->get('push_token') ?? '');
+        if ($push_token) {
+            $this->db->where('id', $user->id)->update('auth_users', ['push_token' => $push_token]);
         }
 
         $valid_statuses = ['draft','sent','accepted','in_progress','completed','invoiced','rejected','cancelled'];
@@ -514,6 +613,24 @@ class Api extends CI_Controller {
 
         $quote      = $this->Quotation_model->get_by_id($id);
         $items_out  = $this->Quotation_model->get_items($id);
+
+        // Notify all admin users (group_id = 1) who have a push token
+        $admin_tokens = $this->db
+            ->select('push_token')
+            ->where('group_id', 1)
+            ->where('is_active', 1)
+            ->where('push_token IS NOT NULL', NULL, FALSE)
+            ->get('auth_users')->result_array();
+
+        $tokens = array_column($admin_tokens, 'push_token');
+        if ($tokens) {
+            send_push(
+                $tokens,
+                'New Quotation',
+                $quote->quote_number . ' — ' . $quote->customer_name,
+                ['quotation_id' => (string)$id, 'quote_number' => $quote->quote_number]
+            );
+        }
 
         return $this->_json([
             'success'      => TRUE,

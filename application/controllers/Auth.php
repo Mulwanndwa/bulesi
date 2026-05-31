@@ -39,14 +39,22 @@ class Auth extends CI_Controller {
 
         if ($user && password_verify($password, $user->password)) {
             $this->Auth_model->update_last_login($user->id);
+
+            $api_token = $user->api_token;
+            if (!$api_token) {
+                $api_token = bin2hex(random_bytes(32));
+                $this->db->where('id', $user->id)->update('auth_users', ['api_token' => $api_token]);
+            }
+
             $this->session->set_userdata([
                 'user_id'    => $user->id,
                 'username'   => $user->username,
                 'email'      => $user->email,
                 'group_id'   => $user->group_id,
                 'group_name' => $user->group_name,
+                'api_token'  => $api_token,
             ]);
-            redirect('dashboard');
+            redirect((int)$user->group_id === 5 ? 'pos' : 'dashboard');
         }
 
         $this->session->set_flashdata('error', 'Invalid credentials. Please try again.');
