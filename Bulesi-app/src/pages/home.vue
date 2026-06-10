@@ -74,6 +74,15 @@
               Share Quotation
             </button>
 
+            <!-- View public page -->
+            <button v-if="view === 'detail' && selectedQuote.public_token" class="nav-drop-item" @click="openPublicView(); menuOpen = false">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+              Customer View
+            </button>
+
             <!-- Change Password -->
             <button v-if="view !== 'user-password'" class="nav-drop-item" @click="goToMyPassword(); menuOpen = false">
               <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -204,40 +213,35 @@
         <p>No companies found</p>
       </div>
 
-      <div v-else class="qt-list">
+      <div v-else class="co-grid">
         <div
           v-for="c in companies"
           :key="c.id"
-          class="qt-card"
+          class="co-grid-card"
           @click="openCompany(c)"
-          style="cursor:pointer"
         >
-          <div class="qt-card-main">
-            <div class="company-logo-wrap">
-              <img v-if="c.logo_url" :src="c.logo_url" :alt="c.name" class="company-logo" />
-              <div v-else class="company-logo-placeholder">
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                  <polyline points="9 22 9 12 15 12 15 22"/>
-                </svg>
-              </div>
-            </div>
-            <div class="qt-card-left">
-              <div class="qt-number">{{ c.name }}</div>
-              <div class="qt-customer">{{ c.address || '—' }}</div>
-            </div>
-            <div class="qt-card-right">
-              <span class="st-badge" style="background:rgba(255,255,255,.12)">
-                {{ c.users?.length ?? 0 }} user{{ c.users?.length !== 1 ? 's' : '' }}
-              </span>
-              <span :class="['st-badge', c.is_active ? 'st-accepted' : 'st-cancelled']" style="margin-top:4px">
-                {{ c.is_active ? 'active' : 'inactive' }}
-              </span>
+          <div class="co-grid-logo">
+            <img v-if="c.logo_url" :src="c.logo_url" :alt="c.name" class="co-grid-img" />
+            <div v-else class="co-grid-placeholder">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
             </div>
           </div>
-          <div class="qt-card-footer">
-            <span v-if="c.phone"><i class="bi bi-phone"></i> {{ c.phone }}</span>
-            <span v-if="c.email"><i class="bi bi-envelope"></i> {{ c.email }}</span>
+          <div class="co-grid-name">{{ c.name }}</div>
+          <div v-if="c.address" class="co-grid-addr">{{ c.address }}</div>
+          <div class="co-grid-footer">
+            <span class="co-grid-users">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              {{ c.users?.length ?? 0 }}
+            </span>
+            <span :class="['co-grid-status', c.is_active ? 'co-grid-active' : 'co-grid-inactive']">
+              {{ c.is_active ? 'Active' : 'Inactive' }}
+            </span>
           </div>
         </div>
       </div>
@@ -928,6 +932,13 @@
             </svg>
             Print / Share
           </button>
+          <button v-if="selectedQuote.public_token" class="btn-ghost" @click="openPublicView">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            Customer View
+          </button>
           <div v-if="shareCopied" class="share-copied">
             <i class="bi bi-check2-circle"></i> Copied to clipboard
           </div>
@@ -1020,7 +1031,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import Push from '../js/push.js';
 
-const API_BASE = 'http://mul-admin.com/api';
+const API_BASE = 'https://mulwai.za/api';
 
 export default {
   setup() {
@@ -1636,6 +1647,17 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       );
     };
 
+    const openPublicView = () => {
+      const token = selectedQuote.value.public_token;
+      if (!token) return;
+      const url = API_BASE.replace(/\/api$/, '') + '/q/' + token;
+      if (window.cordova?.InAppBrowser) {
+        window.cordova.InAppBrowser.open(url, '_blank', 'location=yes,toolbar=yes,closebuttoncaption=Close');
+      } else {
+        window.open(url, '_blank');
+      }
+    };
+
     // ── Edit state ────────────────────────────────────────────────────────
     const isEditing  = ref(false);
     const editingId  = ref(null);
@@ -1975,7 +1997,7 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       quotations, quotationsLoading, quotationsError, listFilter, statusFilters,
       searchQuery, dateFrom, dateTo, hasActiveFilters, clearFilters, callPhone,
       filteredQuotations, fetchQuotations, setListFilter, goToList, goToCreate,
-      selectedQuote, detailLoading, detailError, shareCopied, openQuotation, shareQuotation,
+      selectedQuote, detailLoading, detailError, shareCopied, openQuotation, shareQuotation, openPublicView,
       previewOpen, previewIndex, openPreview, closePreview,
       uploadedImages, removedImageSlots, onImgsSelected, onImgDrop, removeUploadedImage,
       isEditing, editStatus, goToEdit, cancelEdit, submitEdit, goBack,
