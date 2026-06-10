@@ -3,6 +3,12 @@
     <a href="<?= base_url('quotation') ?>" class="btn btn-sm btn-light"><i class="bi bi-arrow-left me-1"></i>All Quotes</a>
     <div class="d-flex gap-2">
         <button onclick="window.print()" class="btn btn-sm btn-light"><i class="bi bi-printer me-1"></i>Print</button>
+        <button class="btn btn-sm btn-light" onclick="copyPublicLink()" title="Copy customer link">
+            <i class="bi bi-share me-1"></i>Share
+        </button>
+        <a href="<?= htmlspecialchars($public_url) ?>" target="_blank" class="btn btn-sm btn-light" title="Open customer view">
+            <i class="bi bi-box-arrow-up-right"></i>
+        </a>
         <a href="<?= base_url('quotation/edit/'.$quote->id) ?>" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil me-1"></i>Edit</a>
         <?php if (($user['group_name'] ?? '') === 'Admin'): ?>
         <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#delModal">
@@ -170,7 +176,23 @@
         </div>
         <?php endif; ?>
 
-        <!-- Signatures -->
+        <!-- Customer signature (screen) -->
+        <?php if (!empty($quote->cust_sig_data)): ?>
+        <div class="border-top pt-3 mt-3 no-print">
+            <h6 class="text-muted text-uppercase fw-semibold mb-2" style="font-size:.7rem;letter-spacing:.8px">Customer Signature</h6>
+            <div class="d-flex align-items-center gap-3">
+                <img src="<?= htmlspecialchars($quote->cust_sig_data) ?>"
+                     style="height:56px;max-width:180px;object-fit:contain;border:1px solid #dee2e6;border-radius:6px;padding:4px;background:#fff" alt="Signature">
+                <div>
+                    <div class="fw-semibold"><?= htmlspecialchars($quote->cust_sig_name) ?></div>
+                    <div class="text-muted small"><?= date('d M Y H:i', strtotime($quote->cust_signed_at)) ?></div>
+                </div>
+                <span class="badge bg-success ms-2">Signed</span>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Signatures (print) -->
         <div class="border-top pt-4 mt-4" style="margin-top:2.5rem!important">
             <div class="row">
                 <div class="col-5">
@@ -182,11 +204,23 @@
                 </div>
                 <div class="col-2"></div>
                 <div class="col-5">
+                    <?php if (!empty($quote->cust_sig_data)): ?>
+                    <div style="padding-top:4px;margin-top:8px">
+                        <img src="<?= htmlspecialchars($quote->cust_sig_data) ?>"
+                             style="max-height:72px;max-width:200px;object-fit:contain;display:block">
+                        <div style="border-top:1px solid #000;margin-top:4px;padding-top:4px">
+                            <span style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Customer Signature</span>
+                            <div style="font-size:.72rem;color:#333;margin-top:2px"><?= htmlspecialchars($quote->cust_sig_name) ?></div>
+                            <div style="font-size:.72rem;color:#666;margin-top:2px"><?= date('d M Y H:i', strtotime($quote->cust_signed_at)) ?></div>
+                        </div>
+                    </div>
+                    <?php else: ?>
                     <div style="border-top:1px solid #000;padding-top:4px;margin-top:48px">
                         <span style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Customer Signature</span>
                         <div style="font-size:.72rem;color:#666;margin-top:2px">Name: ___________________________</div>
                         <div style="font-size:.72rem;color:#666;margin-top:6px">Date: ____________________________</div>
                     </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -229,6 +263,22 @@
         </div>
     </div>
 </div>
+
+<script>
+function copyPublicLink() {
+    var url = '<?= addslashes($public_url) ?>';
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(function() {
+            var btn = event.currentTarget;
+            var orig = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-check me-1"></i>Copied!';
+            setTimeout(function() { btn.innerHTML = orig; }, 2000);
+        });
+    } else {
+        window.prompt('Copy this link:', url);
+    }
+}
+</script>
 
 <style>
 @media print {

@@ -57,6 +57,9 @@ $route['reports/sales/custom/(:any)/(:any)'] = 'Reports/sales_custom/$1/$2';
 $route['reports/sales/(:any)']               = 'Reports/sales/$1';
 $route['reports/sales']                      = 'Reports/sales';
 
+$route['q/(:any)/sign'] = 'Public_quote/sign/$1';
+$route['q/(:any)']      = 'Public_quote/view/$1';
+
 $route['api/users/(:num)/password']   = 'Api/user_password/$1';
 $route['api/quotation/(:num)/images'] = 'Api/quotation_images/$1';
 $route['api/push-token']              = 'Api/push_token';

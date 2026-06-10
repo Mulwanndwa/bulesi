@@ -114,17 +114,11 @@
         </a>
         <div class="sb-label">Analytics</div>
         <a href="<?= base_url('reports') ?>" class="sb-link <?= ($this->uri->segment(1)==='reports' && $this->uri->segment(2)!=='sales')?'active':'' ?>">
-            <i class="bi bi-bar-chart-line-fill"></i> Reports
+            <i class="bi bi-bar-chart-line-fill"></i> General Quotes Reports
         </a>
         <a href="<?= base_url('reports/sales') ?>" class="sb-link <?= ($this->uri->segment(1)==='reports' && $this->uri->segment(2)==='sales')?'active':'' ?>">
             <i class="bi bi-cash-coin"></i> Sales Report
         </a>
-        <?php if (in_array($user['group_name'] ?? '', ['Admin','Manager'])): ?>
-        <div class="sb-label">Integrations</div>
-        <a href="<?= base_url('whatsapp') ?>" class="sb-link <?= $this->uri->segment(1)==='whatsapp'?'active':'' ?>">
-            <i class="bi bi-whatsapp"></i> WhatsApp
-        </a>
-        <?php endif; ?>
         <?php if (($user['group_name'] ?? '') === 'Admin'): ?>
         <div class="sb-label">System</div>
         <a href="<?= base_url('companies') ?>" class="sb-link <?= $this->uri->segment(1)==='companies'?'active':'' ?>">

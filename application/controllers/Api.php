@@ -63,7 +63,7 @@ class Api extends CI_Controller {
 
         $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'u.email' : 'u.username';
         $user  = $this->db
-            ->select('u.*, g.name AS group_name, c.name AS company_name, c.logo_url AS company_logo_url')
+            ->select('u.*, g.name AS group_name, c.name AS company_name, c.logo_url AS company_logo_url, c.address AS company_address, c.phone AS company_phone, c.email AS company_email')
             ->from('auth_users u')
             ->join('user_groups g', 'g.id = u.group_id', 'left')
             ->join('companies c', 'c.id = u.company_id', 'left')
@@ -100,7 +100,10 @@ class Api extends CI_Controller {
                 'group_name'   => $user->group_name,
                 'company_id'       => $user->company_id ? (int)$user->company_id : NULL,
                 'company_name'     => $user->company_name,
-                'company_logo_url' => $user->company_logo_url ?: NULL,
+                'company_logo_url' => $user->company_logo_url  ?: NULL,
+                'company_address'  => $user->company_address   ?: NULL,
+                'company_phone'    => $user->company_phone     ?: NULL,
+                'company_email'    => $user->company_email     ?: NULL,
             ],
         ]);
     }

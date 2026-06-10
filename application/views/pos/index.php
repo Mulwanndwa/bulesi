@@ -187,6 +187,7 @@
                 <i class="bi bi-cart-x d-block mb-2" style="font-size:2rem"></i>
                 Cart is empty
             </div>
+            <div id="cart-rows"></div>
         </div>
         <div id="cart-footer">
             <div class="total-row"><span class="lbl">Subtotal</span><span class="val" id="disp-subtotal">R 0.00</span></div>
@@ -375,10 +376,10 @@ function cartTotals() {
 function round2(n) { return Math.round(n * 100) / 100; }
 
 function renderCart() {
-    const container  = document.getElementById('cart-items');
-    const emptyMsg   = document.getElementById('cart-empty-msg');
-    const count      = document.getElementById('cart-count');
-    const btnChk     = document.getElementById('btn-checkout');
+    const rows    = document.getElementById('cart-rows');
+    const emptyMsg = document.getElementById('cart-empty-msg');
+    const count   = document.getElementById('cart-count');
+    const btnChk  = document.getElementById('btn-checkout');
     const { subtotal, vat, total } = cartTotals();
 
     count.textContent = cart.reduce((s, r) => s + r.quantity, 0);
@@ -387,15 +388,9 @@ function renderCart() {
     document.getElementById('disp-total').textContent    = fmt(total);
     btnChk.disabled = cart.length === 0;
 
-    if (cart.length === 0) {
-        container.innerHTML = '';
-        if (!container.contains(emptyMsg)) container.appendChild(emptyMsg);
-        emptyMsg.style.display = '';
-        return;
-    }
+    emptyMsg.style.display = cart.length === 0 ? '' : 'none';
 
-    emptyMsg.style.display = 'none';
-    container.innerHTML = cart.map(r => `
+    rows.innerHTML = cart.map(r => `
         <div class="cart-row">
             <div class="flex-shrink-0">
                 <div class="cart-item-name">${r.item.name}</div>

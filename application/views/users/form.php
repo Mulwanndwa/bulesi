@@ -52,9 +52,9 @@ $is_self = $is_edit && (int)$record->id === (int)$user['id'];
 
                     <!-- Company -->
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Company</label>
-                        <select name="company_id" class="form-select">
-                            <option value="">— No company —</option>
+                        <label class="form-label fw-semibold">Company <span class="text-danger">*</span></label>
+                        <select name="company_id" class="form-select <?= form_error('company_id') ? 'is-invalid' : '' ?>" required>
+                            <option value="">— Select company —</option>
                             <?php foreach ($companies as $co): ?>
                             <option value="<?= $co->id ?>"
                                 <?= (int)set_value('company_id', $record->company_id ?? '') === (int)$co->id ? 'selected' : '' ?>>
@@ -62,6 +62,7 @@ $is_self = $is_edit && (int)$record->id === (int)$user['id'];
                             </option>
                             <?php endforeach; ?>
                         </select>
+                        <div class="invalid-feedback"><?= form_error('company_id') ?></div>
                     </div>
 
                     <!-- Active toggle -->

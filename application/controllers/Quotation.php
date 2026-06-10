@@ -131,14 +131,18 @@ class Quotation extends MY_Controller {
     // ── View (GET) ────────────────────────────────────────────────────
     public function view($id = NULL)
     {
-        $quote = $this->_get_quote_or_404($id);
+        $quote       = $this->_get_quote_or_404($id);
+        $public_token = $this->Quotation_model->ensure_token($quote->id);
+        $quote->public_token = $public_token;
+
         $data  = [
-            'title'       => $quote->quote_number,
-            'user'        => $this->current_user,
-            'statuses'    => $this->statuses,
-            'quote_types' => $this->Quotation_type_model->get_active(),
-            'quote'       => $quote,
-            'items'       => $this->Quotation_model->get_items($id),
+            'title'        => $quote->quote_number,
+            'user'         => $this->current_user,
+            'statuses'     => $this->statuses,
+            'quote_types'  => $this->Quotation_type_model->get_active(),
+            'quote'        => $quote,
+            'items'        => $this->Quotation_model->get_items($id),
+            'public_url'   => base_url('q/' . $public_token),
         ];
         $this->load->view('layouts/header', $data);
         $this->load->view('quotations/view', $data);

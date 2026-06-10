@@ -45,8 +45,43 @@ class Quotation_model extends CI_Model {
                         ->get('quotation_items')->result();
     }
 
+    public function get_by_token($token)
+    {
+        return $this->db->select('q.*, u.username AS created_by, t.name AS type_name,
+                                  c.name AS company_name, c.logo AS company_logo,
+                                  c.phone AS company_phone, c.email AS company_email,
+                                  c.address AS company_address')
+                        ->from('quotations q')
+                        ->join('auth_users u',      'u.id = q.user_id',    'left')
+                        ->join('quotation_types t', 't.id = q.type_id',    'left')
+                        ->join('companies c',       'c.id = u.company_id', 'left')
+                        ->where('q.public_token', $this->db->escape_str($token))
+                        ->get()->row();
+    }
+
+    public function ensure_token($id)
+    {
+        $row = $this->db->select('public_token')->where('id', (int)$id)->get('quotations')->row();
+        if ($row && !empty($row->public_token)) return $row->public_token;
+        $token = bin2hex(random_bytes(24));
+        $this->db->where('id', (int)$id)->update('quotations', ['public_token' => $token]);
+        return $token;
+    }
+
+    public function save_signature($id, $sig_data, $sig_name)
+    {
+        $this->db->where('id', (int)$id)->update('quotations', [
+            'cust_sig_data'  => $sig_data,
+            'cust_sig_name'  => $sig_name,
+            'cust_signed_at' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
     public function create($data, $items)
     {
+        if (empty($data['public_token'])) {
+            $data['public_token'] = bin2hex(random_bytes(24));
+        }
         $this->db->trans_start();
         $this->db->insert('quotations', $data);
         $id = $this->db->insert_id();

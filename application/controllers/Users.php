@@ -207,15 +207,17 @@ class Users extends MY_Controller {
         $this->form_validation->set_rules('username',         'Username',         'required|trim|min_length[3]|max_length[100]');
         $this->form_validation->set_rules('email',            'Email',            'required|trim|valid_email|max_length[150]');
         $this->form_validation->set_rules('group_id',         'User Group',       'required|integer');
+        $this->form_validation->set_rules('company_id',       'Company',          'required|integer');
         $this->form_validation->set_rules('password',         'Password',         'required|min_length[6]');
         $this->form_validation->set_rules('confirm_password', 'Confirm Password', 'required|matches[password]');
     }
 
     private function _set_rules_edit()
     {
-        $this->form_validation->set_rules('username', 'Username',   'required|trim|min_length[3]|max_length[100]');
-        $this->form_validation->set_rules('email',    'Email',      'required|trim|valid_email|max_length[150]');
-        $this->form_validation->set_rules('group_id', 'User Group', 'required|integer');
+        $this->form_validation->set_rules('username',   'Username',   'required|trim|min_length[3]|max_length[100]');
+        $this->form_validation->set_rules('email',      'Email',      'required|trim|valid_email|max_length[150]');
+        $this->form_validation->set_rules('group_id',   'User Group', 'required|integer');
+        $this->form_validation->set_rules('company_id', 'Company',    'required|integer');
 
         if ($this->input->post('password')) {
             $this->form_validation->set_rules('password',         'Password',         'min_length[6]');
