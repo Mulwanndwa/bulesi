@@ -2,7 +2,7 @@
   <f7-page name="home" :class="{ 'is-chat': view === 'chat' }">
 
     <!-- ── NAVBAR ────────────────────────────────────────────────────── -->
-    <f7-navbar v-if="view !== 'login'">
+    <f7-navbar v-if="view !== 'login' && view !== 'register'">
       <f7-nav-left>
         <f7-link v-if="view !== homeView" @click="goBack" class="nav-back">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -18,11 +18,11 @@
       </f7-nav-left>
       <f7-nav-title v-if="view === 'conversations'">Messages</f7-nav-title>
       <f7-nav-title v-else-if="view === 'chat' && selectedConv">
-        {{ selectedConv.participants.map(p => p.username).join(', ') }}
+        {{ selectedConv.participants.map(p => (p.first_name && p.last_name) ? p.first_name + ' ' + p.last_name : p.username).join(', ') }}
       </f7-nav-title>
 
       <f7-nav-right>
-        <button v-if="view !== 'login'" class="nav-chat-btn" @click="goToConversations">
+        <button v-if="view !== 'login' && view !== 'register'" class="nav-chat-btn" @click="goToConversations">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
           </svg>
@@ -119,7 +119,7 @@
     </f7-navbar>
 
     <!-- ── BOTTOM TABBAR ─────────────────────────────────────────────── -->
-    <!-- <f7-toolbar v-if="view !== 'login'" tabbar bottom icons>
+    <!-- <f7-toolbar v-if="view !== 'login' && view !== 'register'" tabbar bottom icons>
       <f7-link @click="goToList" :class="{ 'tab-link-active': view === 'list' }">
         <i class="bi bi-files" style="font-size:1.1rem"></i>
         <span class="tabbar-label">Quotations</span>
@@ -136,7 +136,7 @@
         <div class="login-card">
 
           <div class="login-brand">
-            <div class="login-logo"><img src="../img/logo.png" alt="Bulise" style="border-radius: 20px; width:108px;height:88px;object-fit:fill;" /></div>
+            <div class="login-logo"><img src="../img/logo.png" alt="Bulise" style="width:150px;height:auto;object-fit:contain;" /></div>
             <!-- <div class="login-name">Bulise</div> -->
             <div class="login-tagline">Quotation management</div>
           </div>
@@ -190,6 +190,107 @@
             <i v-else class="bi bi-box-arrow-in-right"></i>
             {{ loginLoading ? 'Signing in…' : 'Sign In' }}
           </button>
+
+          <div class="login-footer">
+            Don't have an account?
+            <button class="login-link" @click="goToRegister">Create account</button>
+          </div>
+
+        </div>
+      </div>
+    </template>
+
+    <!-- ── REGISTER ───────────────────────────────────────────────────── -->
+    <template v-if="view === 'register'">
+      <div class="login-wrap">
+        <div class="login-card">
+
+          <div class="login-brand">
+            <div class="login-logo"><img src="../img/logo.png" alt="Bulise" style="width:150px;height:auto;object-fit:contain;" /></div>
+            <div class="login-tagline">Create your account</div>
+          </div>
+
+          <div v-if="regError" class="alert-err">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <span>{{ regError }}</span>
+          </div>
+
+          <div style="display:flex;gap:10px">
+            <div class="lf-group" style="flex:1">
+              <label class="lf-label">First Name</label>
+              <div class="lf-input-wrap">
+                <input class="lf-input" type="text" placeholder="First"
+                  :value="regForm.first_name" @input="regForm.first_name = $event.target.value"
+                  autocomplete="given-name" style="padding-left:12px" />
+              </div>
+            </div>
+            <div class="lf-group" style="flex:1">
+              <label class="lf-label">Last Name</label>
+              <div class="lf-input-wrap">
+                <input class="lf-input" type="text" placeholder="Last"
+                  :value="regForm.last_name" @input="regForm.last_name = $event.target.value"
+                  autocomplete="family-name" style="padding-left:12px" />
+              </div>
+            </div>
+          </div>
+
+          <div class="lf-group">
+            <label class="lf-label">Username</label>
+            <div class="lf-input-wrap">
+              <i class="bi bi-person lf-icon"></i>
+              <input class="lf-input" type="text" placeholder="your username"
+                :value="regForm.username" @input="regForm.username = $event.target.value"
+                autocomplete="username" />
+            </div>
+          </div>
+
+          <div class="lf-group">
+            <label class="lf-label">Email</label>
+            <div class="lf-input-wrap">
+              <i class="bi bi-envelope lf-icon"></i>
+              <input class="lf-input" type="email" placeholder="you@example.com"
+                :value="regForm.email" @input="regForm.email = $event.target.value"
+                autocomplete="email" />
+            </div>
+          </div>
+
+          <div class="lf-group">
+            <label class="lf-label">Password</label>
+            <div class="lf-input-wrap">
+              <i class="bi bi-lock lf-icon"></i>
+              <input class="lf-input" :type="showRegPw ? 'text' : 'password'" placeholder="min. 6 characters"
+                :value="regForm.password" @input="regForm.password = $event.target.value"
+                autocomplete="new-password" />
+              <button type="button" class="lf-pw-btn" @click="showRegPw = !showRegPw">
+                <i :class="showRegPw ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="lf-group">
+            <label class="lf-label">Company</label>
+            <div class="lf-input-wrap" style="padding-right:12px">
+              <i class="bi bi-building lf-icon"></i>
+              <select class="lf-input" style="cursor:pointer"
+                :value="regForm.company_id" @change="regForm.company_id = $event.target.value">
+                <option value="" disabled>Select your company…</option>
+                <option v-if="regCompaniesLoading" disabled>Loading…</option>
+                <option v-for="c in regCompanies" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="login-btn" @click="doRegister"
+            :disabled="regLoading || !regForm.first_name || !regForm.last_name || !regForm.username || !regForm.email || !regForm.password || !regForm.company_id">
+            <f7-preloader v-if="regLoading" :size="18" color="white"></f7-preloader>
+            <i v-else class="bi bi-person-plus"></i>
+            {{ regLoading ? 'Creating account…' : 'Create Account' }}
+          </button>
+
+          <div class="login-footer">
+            Already have an account?
+            <button class="login-link" @click="view = 'login'">Sign in</button>
+          </div>
 
         </div>
       </div>
@@ -323,8 +424,8 @@
               <span class="user-qt-badge">{{ u.quotations_count ?? 0 }}</span>
             </div>
             <div class="qt-card-left">
-              <div class="qt-number">{{ u.username }}</div>
-              <div class="qt-customer">{{ u.email }}</div>
+              <div class="qt-number">{{ u.full_name || u.username }}</div>
+              <div class="qt-customer">{{ u.username }} · {{ u.email }}</div>
             </div>
             <div class="qt-card-right">
               <span :class="['st-badge', u.is_active ? 'st-accepted' : 'st-cancelled']">
@@ -364,8 +465,8 @@
             <div class="page-hero-title">Change Password</div>
             <div class="page-hero-sub">{{ passwordUser?.username }}</div>
           </div>
-          <div class="user-avatar" style="width:44px;height:44px;background:rgba(233,69,96,.25)">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e94560" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <div class="user-avatar" style="width:44px;height:44px;background:rgba(30,125,30,.25)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e7d1e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
             </svg>
           </div>
@@ -433,8 +534,8 @@
             <div class="page-hero-title">Add Staff Member</div>
             <div class="page-hero-sub">Fill in the details below to create an account</div>
           </div>
-          <div class="user-avatar" style="width:44px;height:44px;background:rgba(233,69,96,.25)">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e94560" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <div class="user-avatar" style="width:44px;height:44px;background:rgba(30,125,30,.25)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1e7d1e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
               <circle cx="12" cy="7" r="4"/>
             </svg>
@@ -452,6 +553,25 @@
               <li v-for="e in userCreateError" :key="e">{{ e }}</li>
             </ul>
             <span v-else> — {{ userCreateError }}</span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px">
+          <div class="lf-group" style="flex:1">
+            <label class="lf-label">First Name</label>
+            <div class="lf-input-wrap">
+              <input class="lf-input" type="text" placeholder="First"
+                :value="userForm.first_name" @input="userForm.first_name = $event.target.value"
+                autocomplete="off" style="padding-left:12px" />
+            </div>
+          </div>
+          <div class="lf-group" style="flex:1">
+            <label class="lf-label">Last Name</label>
+            <div class="lf-input-wrap">
+              <input class="lf-input" type="text" placeholder="Last"
+                :value="userForm.last_name" @input="userForm.last_name = $event.target.value"
+                autocomplete="off" style="padding-left:12px" />
+            </div>
           </div>
         </div>
 
@@ -507,7 +627,7 @@
         </div>
 
         <button class="login-btn" style="margin-top:24px" @click="submitUser"
-          :disabled="userCreateLoading || !userForm.username || !userForm.email || !userForm.password || !userForm.group_id">
+          :disabled="userCreateLoading || !userForm.first_name || !userForm.last_name || !userForm.username || !userForm.email || !userForm.password || !userForm.group_id">
           <f7-preloader v-if="userCreateLoading" :size="18" color="white"></f7-preloader>
           <svg v-else xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
@@ -1041,6 +1161,44 @@
       <p>No conversations yet</p>
     </div>
 
+    <!-- Compose FAB -->
+    <button class="list-fab" @click="openUserPicker">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        <line x1="12" y1="8" x2="12" y2="14"/><line x1="9" y1="11" x2="15" y2="11"/>
+      </svg>
+    </button>
+
+    <!-- User picker overlay -->
+    <div v-if="userPickerOpen" class="qp-overlay" @click.self="userPickerOpen = false">
+      <div class="qp-sheet">
+        <div class="qp-header">
+          <span class="qp-title">New Message</span>
+          <button class="qp-close" @click="userPickerOpen = false">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+        <div class="qp-search-wrap">
+          <i class="bi bi-search qp-search-icon"></i>
+          <input class="qp-search-input" type="text" placeholder="Search by name or username…"
+            :value="userPickerSearch" @input="userPickerSearch = $event.target.value" autocomplete="off" />
+        </div>
+        <div class="qp-list">
+          <div v-if="userPickerLoading" style="padding:20px;text-align:center">
+            <f7-preloader :size="28"></f7-preloader>
+          </div>
+          <div v-else-if="!filteredPickerUsers.length" class="qp-empty">No users found</div>
+          <div v-else v-for="u in filteredPickerUsers" :key="u.id" class="qp-item" @click="startConversation(u); userPickerOpen = false">
+            <div class="qp-item-row">
+              <span class="qp-item-num">{{ u.full_name || u.username }}</span>
+              <span class="st-badge" style="font-size:.62rem;background:rgba(0,0,0,.07);color:#555">{{ u.group_name }}</span>
+            </div>
+            <div class="qp-item-meta">@{{ u.username }}{{ u.email ? ' · ' + u.email : '' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div v-else class="conv-list">
       <div
         v-for="c in conversations"
@@ -1062,7 +1220,7 @@
         <div class="conv-content">
           <div class="conv-top-row">
             <span :class="['conv-name', c.unread_count > 0 && 'conv-name-unread']">
-              {{ c.participants.map(p => p.username).join(', ') }}
+              {{ c.participants.map(p => (p.first_name && p.last_name) ? p.first_name + ' ' + p.last_name : p.username).join(', ') }}
             </span>
             <span class="conv-ts">{{ fmtConvTime(c.updated_at) }}</span>
           </div>
@@ -1279,7 +1437,7 @@ export default {
       name: 'Demo QT',
       theme: 'md',
       darkMode: true,
-      colors: { primary: '#e94560' },
+      colors: { primary: '#1e7d1e' },
     };
 
     // ── State ─────────────────────────────────────────────────────────────
@@ -1291,6 +1449,14 @@ export default {
     const loginError   = ref('');
     const quoteLoading = ref(false);
     const quoteError   = ref('');
+
+    // ── Register state ────────────────────────────────────────────────────
+    const regForm            = reactive({ first_name: '', last_name: '', username: '', email: '', password: '', company_id: '' });
+    const regLoading         = ref(false);
+    const regError           = ref('');
+    const regCompanies       = ref([]);
+    const regCompaniesLoading = ref(false);
+    const showRegPw          = ref(false);
     const createdQuote = ref({});
 
     // ── Users state (admin) ───────────────────────────────────────────────
@@ -1308,7 +1474,7 @@ export default {
     const showUserPw        = ref(false);
     const userCreateLoading = ref(false);
     const userCreateError   = ref('');
-    const userForm          = reactive({ username: '', email: '', password: '', group_id: '', is_active: true });
+    const userForm          = reactive({ first_name: '', last_name: '', username: '', email: '', password: '', group_id: '', is_active: true });
 
     // ── Password change state ─────────────────────────────────────────────
     const passwordUser  = ref(null);
@@ -1324,6 +1490,9 @@ export default {
       const q = userSearch.value.trim().toLowerCase();
       if (!q) return users.value;
       return users.value.filter(u =>
+        u.full_name?.toLowerCase().includes(q) ||
+        u.first_name?.toLowerCase().includes(q) ||
+        u.last_name?.toLowerCase().includes(q) ||
         u.username?.toLowerCase().includes(q) ||
         u.email?.toLowerCase().includes(q) ||
         u.group_name?.toLowerCase().includes(q)
@@ -1418,7 +1587,23 @@ export default {
     let   convPollTimer     = null;
     let   msgPollTimer      = null;
 
-    const chatCreateMode = ref(false);
+    const chatCreateMode    = ref(false);
+    const userPickerOpen    = ref(false);
+    const userPickerSearch  = ref('');
+    const userPickerLoading = ref(false);
+    const userPickerList    = ref([]);
+
+    const filteredPickerUsers = computed(() => {
+      const q   = userPickerSearch.value.trim().toLowerCase();
+      const src = userPickerList.value.filter(u => u.id !== user.value.id);
+      if (!q) return src;
+      return src.filter(u =>
+        u.full_name?.toLowerCase().includes(q) ||
+        u.username?.toLowerCase().includes(q) ||
+        u.email?.toLowerCase().includes(q) ||
+        u.group_name?.toLowerCase().includes(q)
+      );
+    });
 
     const totalUnread = computed(() =>
       conversations.value.reduce((s, c) => s + (c.unread_count || 0), 0)
@@ -1602,7 +1787,7 @@ export default {
     const goToUserCreate = () => {
       userCreateError.value = '';
       showUserPw.value = false;
-      Object.assign(userForm, { username: '', email: '', password: '', group_id: '', is_active: true });
+      Object.assign(userForm, { first_name: '', last_name: '', username: '', email: '', password: '', group_id: '', is_active: true });
       if (!groups.value.length) fetchGroups();
       view.value = 'user-create';
     };
@@ -1614,11 +1799,13 @@ export default {
         await apiFetch('/users', {
           method: 'POST',
           body: JSON.stringify({
-            username:  userForm.username.trim(),
-            email:     userForm.email.trim(),
-            password:  userForm.password,
-            group_id:  userForm.group_id,
-            is_active: userForm.is_active ? 1 : 0,
+            first_name: userForm.first_name.trim(),
+            last_name:  userForm.last_name.trim(),
+            username:   userForm.username.trim(),
+            email:      userForm.email.trim(),
+            password:   userForm.password,
+            group_id:   userForm.group_id,
+            is_active:  userForm.is_active ? 1 : 0,
           }),
         });
         goToUsers();
@@ -1777,7 +1964,7 @@ export default {
   .grand-lbl{text-align:right;font-weight:800;font-size:14px;border-right:none}
   .grand-val{text-align:right;font-weight:800;font-size:14px;white-space:nowrap}
   /* ── Notes ── */
-  .notes{margin-top:20px;padding:12px 14px;background:#f9f9f9;border-left:3px solid #e94560}
+  .notes{margin-top:20px;padding:12px 14px;background:#f9f9f9;border-left:3px solid #1e7d1e}
   .notes-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#aaa;margin-bottom:5px}
   .notes-body{font-size:12px;color:#444;line-height:1.6}
   /* ── Signature ── */
@@ -2104,6 +2291,21 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       fetchConversations();
     };
 
+    const openUserPicker = async () => {
+      userPickerSearch.value = '';
+      userPickerOpen.value   = true;
+      if (userPickerList.value.length) return;
+      userPickerLoading.value = true;
+      try {
+        const data = await apiFetch('/users');
+        userPickerList.value = data.data ?? data;
+      } catch (err) {
+        if (err.response?.status === 401) logout();
+      } finally {
+        userPickerLoading.value = false;
+      }
+    };
+
     const goToCreateFromChat = () => {
       chatCreateMode.value = true;
       resetForm();
@@ -2328,6 +2530,58 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       }
     };
 
+    const goToRegister = async () => {
+      Object.assign(regForm, { first_name: '', last_name: '', username: '', email: '', password: '', company_id: '' });
+      regError.value  = '';
+      showRegPw.value = false;
+      view.value = 'register';
+      regCompaniesLoading.value = true;
+      try {
+        const res  = await fetch(API_BASE + '/companies/public');
+        const data = await res.json();
+        regCompanies.value = data.data ?? data;
+      } catch (_) {
+        regError.value = 'Could not load companies. Check your connection.';
+      } finally {
+        regCompaniesLoading.value = false;
+      }
+    };
+
+    const doRegister = async () => {
+      regError.value   = '';
+      regLoading.value = true;
+      try {
+        const res  = await fetch(API_BASE + '/register', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            first_name: regForm.first_name.trim(),
+            last_name:  regForm.last_name.trim(),
+            username:   regForm.username.trim(),
+            email:      regForm.email.trim(),
+            password:   regForm.password,
+            company_id: parseInt(regForm.company_id),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          const d = data?.details?.join(', ') || data?.error || 'Registration failed.';
+          regError.value = d;
+          return;
+        }
+        localStorage.setItem('qt_token', data.token);
+        localStorage.setItem('qt_user',  JSON.stringify(data.user));
+        user.value = data.user;
+        initPush(true);
+        if (data.user.group_id === 1) goToCompanies();
+        else goToList();
+      } catch (_) {
+        regError.value = 'Registration failed. Check your connection.';
+      } finally {
+        regLoading.value = false;
+      }
+    };
+
     const logout = () => {
       stopConvPoll();
       stopMsgPoll();
@@ -2499,6 +2753,8 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       f7params,
       view, user, showPw, menuOpen,
       loginLoading, loginError, loginForm, doLogin, logout,
+      regForm, regLoading, regError, regCompanies, regCompaniesLoading, showRegPw,
+      goToRegister, doRegister,
       quoteLoading, quoteError, qForm, totals, createdQuote,
       submitQuote, addItem, removeItem, resetForm,
       quotations, quotationsLoading, quotationsError, listFilter, statusFilters,
@@ -2511,6 +2767,7 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       fetchConversations, openConversation, loadMoreMessages, sendMessage,
       attachQuote, openQuotePicker, openQuoteLink, goToConversations, startConversation,
       chatCreateMode, goToCreateFromChat,
+      userPickerOpen, userPickerSearch, userPickerLoading, filteredPickerUsers, openUserPicker,
       fmtConvTime, fmtMsgTime,
       previewOpen, previewIndex, openPreview, closePreview,
       uploadedImages, removedImageSlots, onImgsSelected, onImgDrop, removeUploadedImage,
