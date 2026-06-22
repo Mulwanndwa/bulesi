@@ -99,7 +99,7 @@ class Chat_model extends CI_Model {
     {
         $sql = "
             SELECT m.id, m.conversation_id, m.sender_id, m.body, m.quote_id, m.created_at,
-                   u.username AS sender_username,
+                   u.username AS sender_username, u.first_name AS sender_first_name, u.last_name AS sender_last_name,
                    q.quote_number, q.customer_name, q.total, q.status AS quote_status,
                    q.public_token AS quote_token
             FROM messages m
@@ -143,7 +143,7 @@ class Chat_model extends CI_Model {
     {
         return $this->db->query("
             SELECT m.id, m.conversation_id, m.sender_id, m.body, m.quote_id, m.created_at,
-                   u.username AS sender_username,
+                   u.username AS sender_username, u.first_name AS sender_first_name, u.last_name AS sender_last_name,
                    q.quote_number, q.customer_name, q.total, q.status AS quote_status,
                    q.public_token AS quote_token
             FROM messages m
@@ -184,7 +184,7 @@ class Chat_model extends CI_Model {
 
     private function _participants($conversation_id, $exclude_user_id = NULL)
     {
-        $this->db->select('u.id, u.username, g.name AS group_name')
+        $this->db->select('u.id, u.username, u.first_name, u.last_name, g.name AS group_name')
                  ->from('auth_users u')
                  ->join('conversation_participants cp', 'cp.user_id = u.id')
                  ->join('user_groups g', 'g.id = u.group_id', 'left')
@@ -194,7 +194,13 @@ class Chat_model extends CI_Model {
             $this->db->where('u.id !=', (int)$exclude_user_id);
         }
 
-        return $this->db->get()->result();
+        $rows = $this->db->get()->result();
+
+        foreach ($rows as $p) {
+            $p->full_name = trim(($p->first_name ?? '') . ' ' . ($p->last_name ?? '')) ?: $p->username;
+        }
+
+        return $rows;
     }
 
     private function _last_message($conversation_id)
@@ -229,14 +235,18 @@ class Chat_model extends CI_Model {
 
     private function _format_message($m)
     {
+        $senderFull = trim(($m->sender_first_name ?? '') . ' ' . ($m->sender_last_name ?? '')) ?: $m->sender_username;
         $out = [
-            'id'               => (int)$m->id,
-            'conversation_id'  => (int)$m->conversation_id,
-            'sender_id'        => (int)$m->sender_id,
-            'sender_username'  => $m->sender_username,
-            'body'             => $m->body,
-            'created_at'       => $m->created_at,
-            'quote'            => NULL,
+            'id'                  => (int)$m->id,
+            'conversation_id'     => (int)$m->conversation_id,
+            'sender_id'           => (int)$m->sender_id,
+            'sender_username'     => $m->sender_username,
+            'sender_first_name'   => $m->sender_first_name  ?: NULL,
+            'sender_last_name'    => $m->sender_last_name   ?: NULL,
+            'sender_full_name'    => $senderFull,
+            'body'                => $m->body,
+            'created_at'          => $m->created_at,
+            'quote'               => NULL,
         ];
 
         if ($m->quote_id) {

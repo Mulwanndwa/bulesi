@@ -68,6 +68,8 @@ class Users extends MY_Controller {
         $company_id = (int)$this->input->post('company_id') ?: NULL;
         $this->User_model->create([
             'username'   => $username,
+            'first_name' => $this->input->post('first_name', TRUE),
+            'last_name'  => $this->input->post('last_name',  TRUE),
             'email'      => $email,
             'group_id'   => (int)$this->input->post('group_id'),
             'company_id' => $company_id,
@@ -123,6 +125,8 @@ class Users extends MY_Controller {
 
         $data = [
             'username'   => $username,
+            'first_name' => $this->input->post('first_name', TRUE),
+            'last_name'  => $this->input->post('last_name',  TRUE),
             'email'      => $email,
             'group_id'   => (int)$this->input->post('group_id'),
             'company_id' => (int)$this->input->post('company_id') ?: NULL,
@@ -204,6 +208,8 @@ class Users extends MY_Controller {
 
     private function _set_rules_create()
     {
+        $this->form_validation->set_rules('first_name',       'First Name',       'required|trim|max_length[75]');
+        $this->form_validation->set_rules('last_name',        'Last Name',        'required|trim|max_length[75]');
         $this->form_validation->set_rules('username',         'Username',         'required|trim|min_length[3]|max_length[100]');
         $this->form_validation->set_rules('email',            'Email',            'required|trim|valid_email|max_length[150]');
         $this->form_validation->set_rules('group_id',         'User Group',       'required|integer');
@@ -214,6 +220,8 @@ class Users extends MY_Controller {
 
     private function _set_rules_edit()
     {
+        $this->form_validation->set_rules('first_name', 'First Name', 'required|trim|max_length[75]');
+        $this->form_validation->set_rules('last_name',  'Last Name',  'required|trim|max_length[75]');
         $this->form_validation->set_rules('username',   'Username',   'required|trim|min_length[3]|max_length[100]');
         $this->form_validation->set_rules('email',      'Email',      'required|trim|valid_email|max_length[150]');
         $this->form_validation->set_rules('group_id',   'User Group', 'required|integer');

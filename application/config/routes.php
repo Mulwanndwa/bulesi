@@ -60,6 +60,7 @@ $route['reports/sales']                      = 'Reports/sales';
 $route['q/(:any)/sign'] = 'Public_quote/sign/$1';
 $route['q/(:any)']      = 'Public_quote/view/$1';
 
+$route['api/companies/public']              = 'Api/companies_public';
 $route['api/conversations/(:num)/messages'] = 'Api/conversation_messages/$1';
 $route['api/conversations/(:num)/read']     = 'Api/conversation_read/$1';
 $route['api/conversations/(:num)']          = 'Api/conversation/$1';

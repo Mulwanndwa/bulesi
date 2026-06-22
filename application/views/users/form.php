@@ -14,6 +14,26 @@ $is_self = $is_edit && (int)$record->id === (int)$user['id'];
             <div class="card-body">
                 <div class="row g-3">
 
+                    <!-- First name -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label>
+                        <input type="text" name="first_name"
+                               class="form-control <?= form_error('first_name') ? 'is-invalid' : '' ?>"
+                               value="<?= htmlspecialchars(set_value('first_name', $record->first_name ?? '')) ?>"
+                               required maxlength="75">
+                        <div class="invalid-feedback"><?= form_error('first_name') ?></div>
+                    </div>
+
+                    <!-- Last name -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Last Name <span class="text-danger">*</span></label>
+                        <input type="text" name="last_name"
+                               class="form-control <?= form_error('last_name') ? 'is-invalid' : '' ?>"
+                               value="<?= htmlspecialchars(set_value('last_name', $record->last_name ?? '')) ?>"
+                               required maxlength="75">
+                        <div class="invalid-feedback"><?= form_error('last_name') ?></div>
+                    </div>
+
                     <!-- Username -->
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Username <span class="text-danger">*</span></label>

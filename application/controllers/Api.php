@@ -11,6 +11,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *
  * Endpoints:
  *   POST /api/login           — exchange credentials for a Bearer token
+ *   POST /api/register        — create a new account and receive a Bearer token
  *   GET  /api/users           — list active users (requires Bearer token)
  *   POST /api/users           — create a new user (requires Bearer token)
  *   PUT  /api/users/:id/password — update a user's password (requires Bearer token)
@@ -53,6 +54,107 @@ class Api extends CI_Controller {
         $this->load->model('Chat_model');
         $this->config->load('push');
         $this->load->helper('push');
+    }
+
+    // ── POST /api/register ───────────────────────────────────────────
+    public function register()
+    {
+        if ($this->input->method() !== 'post') {
+            return $this->_json(['error' => 'Method Not Allowed'], 405);
+        }
+
+        $body       = $this->_body();
+        $username   = $this->_str($body['username']   ?? '');
+        $first_name = $this->_str($body['first_name'] ?? '');
+        $last_name  = $this->_str($body['last_name']  ?? '');
+        $email      = $this->_str($body['email']      ?? '');
+        $password   = $body['password']               ?? '';
+        $company_id = isset($body['company_id']) ? (int)$body['company_id'] : 0;
+        $group_id   = isset($body['group_id'])   ? (int)$body['group_id']   : 0;
+
+        $errors = [];
+        if (!$username)                                    $errors[] = 'username is required';
+        if (strlen($username) < 3)                         $errors[] = 'username must be at least 3 characters';
+        if (!$first_name)                                  $errors[] = 'first_name is required';
+        if (!$last_name)                                   $errors[] = 'last_name is required';
+        if (!$email)                                       $errors[] = 'email is required';
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL))    $errors[] = 'email is invalid';
+        if (!$password)                                    $errors[] = 'password is required';
+        if (strlen($password) < 6)                         $errors[] = 'password must be at least 6 characters';
+        if (!$company_id)                                  $errors[] = 'company_id is required';
+
+        if ($errors) {
+            return $this->_json(['error' => 'Validation failed', 'details' => $errors], 422);
+        }
+
+        if ($this->User_model->username_exists($username)) {
+            return $this->_json(['error' => 'Validation failed', 'details' => ['username already taken']], 422);
+        }
+        if ($this->User_model->email_exists($email)) {
+            return $this->_json(['error' => 'Validation failed', 'details' => ['email already registered']], 422);
+        }
+
+        // Validate company exists and is active
+        $company = $this->db->where('id', $company_id)->where('is_active', 1)->get('companies')->row();
+        if (!$company) {
+            return $this->_json(['error' => 'Validation failed', 'details' => ['company_id is invalid']], 422);
+        }
+
+        // Resolve group — default to first non-admin group if not supplied or invalid
+        if ($group_id) {
+            $group = $this->db->where('id', $group_id)->get('user_groups')->row();
+        }
+        if (empty($group)) {
+            $group = $this->db->where('name !=', 'Admin')->order_by('id', 'ASC')->limit(1)->get('user_groups')->row();
+        }
+        if (!$group) {
+            return $this->_json(['error' => 'No user group available. Contact an administrator.'], 500);
+        }
+
+        $token  = bin2hex(random_bytes(32));
+        $new_id = $this->User_model->create([
+            'username'   => $username,
+            'first_name' => $first_name,
+            'last_name'  => $last_name,
+            'email'      => $email,
+            'password'   => $password,
+            'group_id'   => $group->id,
+            'company_id' => $company_id,
+            'is_active'  => 1,
+            'api_token'  => $token,
+        ]);
+
+        if (!$new_id) {
+            return $this->_json(['error' => 'Registration failed. Please try again.'], 500);
+        }
+
+        // Persist push token if provided at registration
+        $push_token = $this->_str($body['push_token'] ?? '');
+        if ($push_token) {
+            $this->db->where('id', $new_id)->update('auth_users', ['push_token' => $push_token]);
+        }
+
+        return $this->_json([
+            'success'    => TRUE,
+            'token'      => $token,
+            'token_type' => 'Bearer',
+            'user'       => [
+                'id'           => (int)$new_id,
+                'username'     => $username,
+                'first_name'   => $first_name,
+                'last_name'    => $last_name,
+                'full_name'    => trim("$first_name $last_name"),
+                'email'        => $email,
+                'group_id'     => (int)$group->id,
+                'group_name'   => $group->name,
+                'company_id'   => $company_id,
+                'company_name' => $company->name,
+                'company_logo_url' => !empty($company->logo) ? base_url($company->logo) : NULL,
+                'company_address'  => $company->address  ?: NULL,
+                'company_phone'    => $company->phone    ?: NULL,
+                'company_email'    => $company->email    ?: NULL,
+            ],
+        ], 201);
     }
 
     // ── POST /api/login ──────────────────────────────────────────────
@@ -104,6 +206,9 @@ class Api extends CI_Controller {
             'user'       => [
                 'id'           => (int)$user->id,
                 'username'     => $user->username,
+                'first_name'   => $user->first_name ?: NULL,
+                'last_name'    => $user->last_name  ?: NULL,
+                'full_name'    => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) ?: $user->username,
                 'email'        => $user->email,
                 'group_id'     => (int)$user->group_id,
                 'group_name'   => $user->group_name,
@@ -134,7 +239,7 @@ class Api extends CI_Controller {
         // ── GET /api/users ────────────────────────────────────────────
         if ($method === 'get') {
             $rows = $this->db
-                ->select('u.id, u.username, u.email, u.is_active, u.created_at, u.updated_at, u.company_id, g.name AS group_name, c.name AS company_name, COUNT(q.id) AS quotations_count')
+                ->select('u.id, u.username, u.first_name, u.last_name, u.email, u.is_active, u.created_at, u.updated_at, u.company_id, g.name AS group_name, c.name AS company_name, COUNT(q.id) AS quotations_count')
                 ->from('auth_users u')
                 ->join('user_groups g', 'g.id = u.group_id', 'left')
                 ->join('companies c', 'c.id = u.company_id', 'left')
@@ -146,6 +251,9 @@ class Api extends CI_Controller {
                 return [
                     'id'               => (int)$u->id,
                     'username'         => $u->username,
+                    'first_name'       => $u->first_name ?: NULL,
+                    'last_name'        => $u->last_name  ?: NULL,
+                    'full_name'        => trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')) ?: $u->username,
                     'email'            => $u->email,
                     'group_name'       => $u->group_name,
                     'company_id'       => $u->company_id ? (int)$u->company_id : NULL,
@@ -165,14 +273,18 @@ class Api extends CI_Controller {
         }
 
         // ── POST /api/users ───────────────────────────────────────────
-        $body     = $this->_body();
-        $username = $this->_str($body['username'] ?? '');
-        $email    = $this->_str($body['email']    ?? '');
-        $password = $body['password'] ?? '';
-        $group_id = isset($body['group_id']) ? (int)$body['group_id'] : NULL;
+        $body       = $this->_body();
+        $username   = $this->_str($body['username']   ?? '');
+        $first_name = $this->_str($body['first_name'] ?? '');
+        $last_name  = $this->_str($body['last_name']  ?? '');
+        $email      = $this->_str($body['email']      ?? '');
+        $password   = $body['password'] ?? '';
+        $group_id   = isset($body['group_id']) ? (int)$body['group_id'] : NULL;
 
         $errors = [];
         if (!$username)                                          $errors[] = 'username is required';
+        if (!$first_name)                                        $errors[] = 'first_name is required';
+        if (!$last_name)                                         $errors[] = 'last_name is required';
         if (!$email)                                             $errors[] = 'email is required';
         if (!filter_var($email, FILTER_VALIDATE_EMAIL))          $errors[] = 'email is invalid';
         if (!$password)                                          $errors[] = 'password is required';
@@ -187,11 +299,13 @@ class Api extends CI_Controller {
         }
 
         $new_id = $this->User_model->create([
-            'username'  => $username,
-            'email'     => $email,
-            'password'  => $password,
-            'group_id'  => $group_id,
-            'is_active' => isset($body['is_active']) ? (int)(bool)$body['is_active'] : 1,
+            'username'   => $username,
+            'first_name' => $first_name,
+            'last_name'  => $last_name,
+            'email'      => $email,
+            'password'   => $password,
+            'group_id'   => $group_id,
+            'is_active'  => isset($body['is_active']) ? (int)(bool)$body['is_active'] : 1,
         ]);
 
         if (!$new_id) {
@@ -205,6 +319,9 @@ class Api extends CI_Controller {
             'data'    => [
                 'id'         => (int)$created->id,
                 'username'   => $created->username,
+                'first_name' => $created->first_name ?: NULL,
+                'last_name'  => $created->last_name  ?: NULL,
+                'full_name'  => trim(($created->first_name ?? '') . ' ' . ($created->last_name ?? '')) ?: $created->username,
                 'email'      => $created->email,
                 'group_id'   => (int)$created->group_id,
                 'group_name' => $created->group_name,
@@ -215,6 +332,18 @@ class Api extends CI_Controller {
     }
 
     // ── GET /api/companies ────────────────────────────────────────────
+    // ── GET /api/companies/public — no auth required ──────────────────
+    public function companies_public()
+    {
+        $rows = $this->db
+            ->select('id, name')
+            ->where('is_active', 1)
+            ->order_by('name', 'ASC')
+            ->get('companies')
+            ->result();
+        return $this->_json(['success' => TRUE, 'data' => $rows]);
+    }
+
     public function companies()
     {
         if ($this->input->method() !== 'get') {
@@ -230,7 +359,7 @@ class Api extends CI_Controller {
 
         // Fetch all users with their group names in one query, keyed by company_id
         $user_rows = $this->db
-            ->select('u.id, u.username, u.email, u.is_active, u.company_id, g.name AS group_name')
+            ->select('u.id, u.username, u.first_name, u.last_name, u.email, u.is_active, u.company_id, g.name AS group_name')
             ->from('auth_users u')
             ->join('user_groups g', 'g.id = u.group_id', 'left')
             ->where('u.company_id IS NOT NULL', NULL, FALSE)
@@ -241,6 +370,9 @@ class Api extends CI_Controller {
             $users_by_company[(int)$u->company_id][] = [
                 'id'         => (int)$u->id,
                 'username'   => $u->username,
+                'first_name' => $u->first_name ?: NULL,
+                'last_name'  => $u->last_name  ?: NULL,
+                'full_name'  => trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')) ?: $u->username,
                 'email'      => $u->email,
                 'group_name' => $u->group_name,
                 'is_active'  => (bool)$u->is_active,
@@ -815,6 +947,9 @@ class Api extends CI_Controller {
                         return [
                             'id'         => (int)$p->id,
                             'username'   => $p->username,
+                            'first_name' => $p->first_name ?: NULL,
+                            'last_name'  => $p->last_name  ?: NULL,
+                            'full_name'  => $p->full_name,
                             'group_name' => $p->group_name,
                         ];
                     }, $c->participants),
@@ -995,6 +1130,9 @@ class Api extends CI_Controller {
                 return [
                     'id'         => (int)$p->id,
                     'username'   => $p->username,
+                    'first_name' => $p->first_name ?: NULL,
+                    'last_name'  => $p->last_name  ?: NULL,
+                    'full_name'  => $p->full_name,
                     'group_name' => $p->group_name,
                 ];
             }, $c->participants),
