@@ -18,6 +18,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *   GET  /api/stock           — list active stock items grouped by category (requires Bearer token)
  *   GET  /api/companies       — list companies with their linked users (requires Bearer token)
  *   POST /api/quotation       — create a new quotation
+ *
+ * Chat:
+ *   GET  /api/conversations              — list the user's conversations
+ *   POST /api/conversations              — start or find a DM with another user { user_id }
+ *   GET  /api/conversations/:id          — get a single conversation
+ *   GET  /api/conversations/:id/messages — list messages (supports ?limit=&before_id=)
+ *   POST /api/conversations/:id/messages — send a message { body, quote_id? }
+ *   PUT  /api/conversations/:id/read     — mark all messages in conversation as read
  */
 class Api extends CI_Controller {
 
@@ -42,6 +50,7 @@ class Api extends CI_Controller {
         $this->load->model('Quotation_model');
         $this->load->model('User_model');
         $this->load->model('Company_model');
+        $this->load->model('Chat_model');
         $this->config->load('push');
         $this->load->helper('push');
     }
@@ -63,7 +72,7 @@ class Api extends CI_Controller {
 
         $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'u.email' : 'u.username';
         $user  = $this->db
-            ->select('u.*, g.name AS group_name, c.name AS company_name, c.logo_url AS company_logo_url, c.address AS company_address, c.phone AS company_phone, c.email AS company_email')
+            ->select('u.*, g.name AS group_name, c.name AS company_name, c.logo AS company_logo_url, c.address AS company_address, c.phone AS company_phone, c.email AS company_email')
             ->from('auth_users u')
             ->join('user_groups g', 'g.id = u.group_id', 'left')
             ->join('companies c', 'c.id = u.company_id', 'left')
@@ -540,6 +549,7 @@ class Api extends CI_Controller {
                         ];
                     }, $items),
                     'images'         => $this->_images($quote),
+                    'public_token'   => $quote->public_token,
                 ],
             ]);
         }
@@ -781,6 +791,215 @@ class Api extends CI_Controller {
             'uploaded' => $uploaded,
             'images'   => $this->_images($updated),
         ]);
+    }
+
+    // ── GET|POST /api/conversations ───────────────────────────────────
+    public function conversations()
+    {
+        $method = $this->input->method();
+
+        $user = $this->_auth();
+        if (!$user) {
+            return $this->_json(['error' => 'Unauthorized. Provide a valid Bearer token.'], 401);
+        }
+
+        // ── GET: list conversations ───────────────────────────────────
+        if ($method === 'get') {
+            $convs = $this->Chat_model->get_conversations((int)$user->id);
+
+            $data = array_map(function($c) {
+                return [
+                    'id'           => (int)$c->id,
+                    'updated_at'   => $c->updated_at,
+                    'participants' => array_map(function($p) {
+                        return [
+                            'id'         => (int)$p->id,
+                            'username'   => $p->username,
+                            'group_name' => $p->group_name,
+                        ];
+                    }, $c->participants),
+                    'last_message' => $c->last_message ? [
+                        'body'            => $c->last_message->body,
+                        'sender_username' => $c->last_message->sender_username,
+                        'created_at'      => $c->last_message->created_at,
+                    ] : NULL,
+                    'unread_count' => (int)$c->unread_count,
+                ];
+            }, $convs);
+
+            return $this->_json(['success' => TRUE, 'count' => count($data), 'data' => $data]);
+        }
+
+        // ── POST: start or find a DM ──────────────────────────────────
+        if ($method !== 'post') {
+            return $this->_json(['error' => 'Method Not Allowed'], 405);
+        }
+
+        $body       = $this->_body();
+        $other_id   = isset($body['user_id']) ? (int)$body['user_id'] : 0;
+
+        if (!$other_id) {
+            return $this->_json(['error' => 'user_id is required'], 422);
+        }
+
+        $other = $this->db->where('id', $other_id)->where('is_active', 1)->get('auth_users')->row();
+        if (!$other) {
+            return $this->_json(['error' => 'User not found.'], 404);
+        }
+
+        // Return existing DM if one already exists
+        $existing = $this->Chat_model->find_dm((int)$user->id, $other_id);
+        if ($existing) {
+            $conv = $this->Chat_model->get_conversation($existing, (int)$user->id);
+            return $this->_json(['success' => TRUE, 'created' => FALSE, 'data' => $this->_fmt_conv($conv)]);
+        }
+
+        $conv_id = $this->Chat_model->create_conversation([(int)$user->id, $other_id]);
+        if (!$conv_id) {
+            return $this->_json(['error' => 'Failed to create conversation.'], 500);
+        }
+
+        $conv = $this->Chat_model->get_conversation($conv_id, (int)$user->id);
+        return $this->_json(['success' => TRUE, 'created' => TRUE, 'data' => $this->_fmt_conv($conv)], 201);
+    }
+
+    // ── GET /api/conversations/:id ────────────────────────────────────
+    public function conversation($id = NULL)
+    {
+        if (!$id || !ctype_digit((string)$id)) {
+            return $this->_json(['error' => 'A numeric conversation ID is required.'], 400);
+        }
+
+        $user = $this->_auth();
+        if (!$user) {
+            return $this->_json(['error' => 'Unauthorized. Provide a valid Bearer token.'], 401);
+        }
+
+        $conv = $this->Chat_model->get_conversation((int)$id, (int)$user->id);
+        if (!$conv) {
+            return $this->_json(['error' => 'Conversation not found.'], 404);
+        }
+
+        return $this->_json(['success' => TRUE, 'data' => $this->_fmt_conv($conv)]);
+    }
+
+    // ── GET|POST /api/conversations/:id/messages ──────────────────────
+    public function conversation_messages($id = NULL)
+    {
+        if (!$id || !ctype_digit((string)$id)) {
+            return $this->_json(['error' => 'A numeric conversation ID is required.'], 400);
+        }
+
+        $user = $this->_auth();
+        if (!$user) {
+            return $this->_json(['error' => 'Unauthorized. Provide a valid Bearer token.'], 401);
+        }
+
+        if (!$this->Chat_model->is_participant((int)$id, (int)$user->id)) {
+            return $this->_json(['error' => 'Conversation not found.'], 404);
+        }
+
+        $method = $this->input->method();
+
+        // ── GET: fetch messages ───────────────────────────────────────
+        if ($method === 'get') {
+            $limit     = min(100, max(1, (int)($this->input->get('limit') ?: 50)));
+            $before_id = (int)$this->input->get('before_id') ?: NULL;
+
+            $rows = $this->Chat_model->get_messages((int)$id, $limit, $before_id);
+            $data = array_map([$this->Chat_model, 'format_message'], $rows);
+
+            // Auto-mark as read on fetch
+            $this->Chat_model->mark_read((int)$id, (int)$user->id);
+
+            return $this->_json(['success' => TRUE, 'count' => count($data), 'data' => $data]);
+        }
+
+        // ── POST: send a message ──────────────────────────────────────
+        if ($method !== 'post') {
+            return $this->_json(['error' => 'Method Not Allowed'], 405);
+        }
+
+        $body     = $this->_body();
+        $text     = $this->_str($body['body'] ?? '');
+        $quote_id = isset($body['quote_id']) ? (int)$body['quote_id'] : NULL;
+
+        if (!$text) {
+            return $this->_json(['error' => 'body is required'], 422);
+        }
+
+        if ($quote_id) {
+            $q = $this->db->where('id', $quote_id)->get('quotations')->row();
+            if (!$q) {
+                return $this->_json(['error' => 'Quotation not found.'], 404);
+            }
+        }
+
+        $msg_id = $this->Chat_model->send_message((int)$id, (int)$user->id, $text, $quote_id);
+        $msg    = $this->Chat_model->get_message($msg_id);
+
+        // Push notification to all other participants who have a device token
+        $tokens = $this->Chat_model->get_recipient_tokens((int)$id, (int)$user->id);
+        if ($tokens) {
+            $preview = mb_strlen($text) > 80 ? mb_substr($text, 0, 77) . '…' : $text;
+            send_push(
+                $tokens,
+                $user->username,
+                $preview,
+                [
+                    'type'            => 'chat_message',
+                    'conversation_id' => (string)$id,
+                    'message_id'      => (string)$msg_id,
+                ]
+            );
+        }
+
+        return $this->_json([
+            'success' => TRUE,
+            'data'    => $this->Chat_model->format_message($msg),
+        ], 201);
+    }
+
+    // ── PUT /api/conversations/:id/read ───────────────────────────────
+    public function conversation_read($id = NULL)
+    {
+        if ($this->input->method() !== 'put') {
+            return $this->_json(['error' => 'Method Not Allowed'], 405);
+        }
+
+        if (!$id || !ctype_digit((string)$id)) {
+            return $this->_json(['error' => 'A numeric conversation ID is required.'], 400);
+        }
+
+        $user = $this->_auth();
+        if (!$user) {
+            return $this->_json(['error' => 'Unauthorized. Provide a valid Bearer token.'], 401);
+        }
+
+        if (!$this->Chat_model->is_participant((int)$id, (int)$user->id)) {
+            return $this->_json(['error' => 'Conversation not found.'], 404);
+        }
+
+        $this->Chat_model->mark_read((int)$id, (int)$user->id);
+
+        return $this->_json(['success' => TRUE]);
+    }
+
+    // ── Format a conversation row for API output ──────────────────────
+    private function _fmt_conv($c)
+    {
+        return [
+            'id'           => (int)$c->id,
+            'updated_at'   => $c->updated_at,
+            'participants' => array_map(function($p) {
+                return [
+                    'id'         => (int)$p->id,
+                    'username'   => $p->username,
+                    'group_name' => $p->group_name,
+                ];
+            }, $c->participants),
+            'unread_count' => (int)$c->unread_count,
+        ];
     }
 
     // ── Bearer token auth ─────────────────────────────────────────────

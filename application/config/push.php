@@ -2,7 +2,12 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 /*
-| FCM server key — obtain from Firebase Console → Project Settings → Cloud Messaging.
-| Legacy HTTP API key (starts with "AAAA...").
+| Firebase Cloud Messaging v1 API — service account credentials.
+| Project: mulwa-846c7
+|
+| Credentials are stored here (PHP file) rather than in a .json file so Apache
+| never serves them as plain text to the public.
 */
-$config['fcm_server_key'] = 'BFceXCZtCkXCN1neSyNM8pzKQgbkSQJM4M0FN5dVe3fXZmKkZILX6SbXHnxRPMHWkm5PMI5Eezo3ERG8tj2i9hY';
+$config['fcm_project_id']    = 'mulwa-846c7';
+$config['fcm_client_email']  = 'firebase-adminsdk-fbsvc@mulwa-846c7.iam.gserviceaccount.com';
+$config['fcm_private_key']   = "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCiGYek9fPHomDW\nnVDb5gG7zUaW8canX7M04ap/CuHl6YlO8WxLmvq+FhL4id/7HYg5tIai/GYU7Osu\n80dWFDEzOlZhtgC+Iviv7nD3eja7s23hc6eOjpHlyEeORxa/sAUkqnayLS0e9TUx\nCD5BYDzKARhjEPrm7plMPVg9dRnXlMPrno1yB6gF6Kgonjgt3rS4t5TVV+PUL5yL\nCv7eInAHUxTkbMtNcMStIF4l77tYu0a6ADiVRgDasmHw4HzuyfLYc+5g8eyAnWHo\ntyACS9dm8bF/O2rvWC+4PY9l/uKuGAz2jntsxHqHQHNPenLdVPDBCqLJ9zakCMjM\ntEHulN6hAgMBAAECggEADYq6dUKC2iOrmWJNFgHSFUFh60xJf0QUcY+EsdZT5uQq\nr2il1m8dEXJApXjHOHBQKBn3wXf6gzcDsslqJTvMnG38N2+AAmJjijcOQu530hh8\nToBd+B/a+mpP6AfyU5M96sE+50W05kgv6Ge647VJfsq2odgSTeaS8faR/5hfz02h\nQxhyUlepeR9uJRuRIJs2XpMDp2mWsUB3GPOEd2oP9KyyPKuIqtQI4cPoXKOIcvo0\nrvj8GcMjfwWkwrku4atHSf3HlzX/PeS7+BWdTW1Q7Ve+RYDyTlQo52U9X/r1nsRK\n63I78Ij9dBrQpA3g5YM0cZvd3csVXVJPtR6Z4NzNTQKBgQDMGwy7252NpXjFNG/O\njESkGiiZCJBoL1bjm4Vjgnx5HuiuUTuigP0gG3rONVzbdcebKit7DRpVQZhQ0Km+\n8h5eV8s23sKPUoJWsrTqXIDgORlD4jKBx1Iv6gLf8QuILeEaXmGVHf04YuAxSEYM\nIzAew1UzBPY6Y4wDNFWC9wYcHwKBgQDLUF9w2upqY8LqjNwPkTh7bLJSbCp2+cBw\nTQ5OxYfJzHh6nfUDSCP7FKAt3NjGDWCh0+0ZDJP5rSeLGaub3E5ktAr5k/jqoM3a\nT4LelRJBQnsp/WSQuV9LzuCL9Q1GsDFCAHBChnhsx+xDY+bJCnglIq4G0FJWPfpE\n2a00uo2tPwKBgE4Lud7Lp39WWsvttSMh981YQ1XhNHbiQzNdcLAQYVBfRVICte75\nq9DvMRJQzWUNsHngsienZv5aysd8QqxFIN+qaoZcv8DWKAjG5O8I2C7lJogSooWF\nliPEM702CtbT1FOk62N9yCobhObTYBWcDvZ0csvDhfPlxNAk3t3pX2i5AoGAa2BD\nR6MWcqHFa4KBJmeX4PeDJiyiMLuueqD3kXqZQGaQqpGJuPX8qro17oLYqaCfDFiU\nu8n8zLw6SiiAjYxIir7bnPwdVi0fCtE7WLp6LaUizwZYemasgaj8xm3hWRfsq+L3\nZusF5s2fZef5FuxEj7hFGKwlEA8jggFEjLiJ4pkCgYBgSQ+CTZKKtgQkKg89uOhK\nOVV0GUwIXQh1NW5TSxs6i7p0EX0RudjvamfBOPrbBJuGnI4Vyf1Qxc288W7RG1k2\nOa1GNmn7G8WuDo4ALGCR/66KLSQNGPH/lOYSX3v9QTnsWhwSKYdMP3zO/SKiYKEk\nZ+hJBT55QRsG2e44u/NjMQ==\n-----END PRIVATE KEY-----\n";
