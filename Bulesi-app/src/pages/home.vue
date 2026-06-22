@@ -1,5 +1,5 @@
 <template>
-  <f7-page name="home">
+  <f7-page name="home" :class="{ 'is-chat': view === 'chat' }">
 
     <!-- ── NAVBAR ────────────────────────────────────────────────────── -->
     <f7-navbar v-if="view !== 'login'">
@@ -16,7 +16,18 @@
           {{ user.username }}
         </div>
       </f7-nav-left>
+      <f7-nav-title v-if="view === 'conversations'">Messages</f7-nav-title>
+      <f7-nav-title v-else-if="view === 'chat' && selectedConv">
+        {{ selectedConv.participants.map(p => p.username).join(', ') }}
+      </f7-nav-title>
+
       <f7-nav-right>
+        <button v-if="view !== 'login'" class="nav-chat-btn" @click="goToConversations">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span v-if="totalUnread > 0" class="nav-chat-badge">{{ totalUnread > 9 ? '9+' : totalUnread }}</span>
+        </button>
         <div class="nav-menu-wrap">
           <button class="nav-burger" @click.stop="menuOpen = !menuOpen">
             <span></span><span></span><span></span>
@@ -326,6 +337,12 @@
           </div>
           <div class="qt-card-footer">
             <span><i class="bi bi-calendar3"></i> Joined {{ u.created_at?.slice(0,10) }}</span>
+            <button class="qt-call-btn" @click.stop="startConversation(u)">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              Message
+            </button>
             <button class="qt-call-btn" @click.stop="goToChangePassword(u)">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
@@ -996,6 +1013,226 @@
       </div>
     </template>
 
+  <!-- ── CONVERSATIONS ────────────────────────────────────────────────── -->
+  <template v-if="view === 'conversations'">
+
+    <div class="list-header">
+      <div class="list-header-row">
+        <div class="list-header-title">Messages</div>
+        <span v-if="!convLoading" class="list-count-pill">{{ conversations.length }}</span>
+      </div>
+    </div>
+
+    <div v-if="convLoading && !conversations.length" class="list-spinner">
+      <f7-preloader :size="36"></f7-preloader>
+    </div>
+
+    <div v-else-if="convError" style="padding:16px">
+      <div class="alert-err">
+        <i class="bi bi-exclamation-circle-fill"></i>
+        <span>{{ convError }}</span>
+      </div>
+    </div>
+
+    <div v-else-if="!conversations.length" class="list-empty">
+      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      <p>No conversations yet</p>
+    </div>
+
+    <div v-else class="conv-list">
+      <div
+        v-for="c in conversations"
+        :key="c.id"
+        class="conv-item"
+        @click="openConversation(c)"
+      >
+        <div class="conv-avatar-wrap">
+          <div class="conv-avatar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+          <span v-if="c.unread_count > 0" class="conv-unread-badge">
+            {{ c.unread_count > 99 ? '99+' : c.unread_count }}
+          </span>
+        </div>
+        <div class="conv-content">
+          <div class="conv-top-row">
+            <span :class="['conv-name', c.unread_count > 0 && 'conv-name-unread']">
+              {{ c.participants.map(p => p.username).join(', ') }}
+            </span>
+            <span class="conv-ts">{{ fmtConvTime(c.updated_at) }}</span>
+          </div>
+          <div :class="['conv-preview', c.unread_count > 0 && 'conv-preview-unread']">
+            <template v-if="c.last_message">
+              <span class="conv-preview-who">{{ c.last_message.sender_username }}: </span>{{ c.last_message.body }}
+            </template>
+            <template v-else>No messages yet</template>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </template>
+
+  <!-- ── CHAT ──────────────────────────────────────────────────────────── -->
+  <template v-if="view === 'chat'">
+
+    <div class="chat-page-wrap">
+
+      <!-- Load older messages -->
+      <div v-if="msgHasMore" class="chat-load-more">
+        <button class="chat-load-btn" @click="loadMoreMessages" :disabled="msgLoadingMore">
+          <f7-preloader v-if="msgLoadingMore" :size="14" color="gray"></f7-preloader>
+          <span v-else>Load older messages</span>
+        </button>
+      </div>
+
+      <!-- Messages -->
+      <div class="chat-messages-area">
+        <div v-if="msgLoading && !messages.length" class="list-spinner" style="padding-top:40px">
+          <f7-preloader :size="32"></f7-preloader>
+        </div>
+        <div v-else-if="msgError" style="padding:16px">
+          <div class="alert-err">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <span>{{ msgError }}</span>
+          </div>
+        </div>
+        <template v-else>
+          <div
+            v-for="msg in messages"
+            :key="msg.id"
+            :class="['chat-msg-wrap', msg.sender_id === user.id ? 'chat-mine' : 'chat-theirs']"
+          >
+            <div v-if="msg.sender_id !== user.id" class="chat-sender-name">{{ msg.sender_username }}</div>
+            <div class="chat-bubble">{{ msg.body }}</div>
+
+            <!-- Quote card -->
+            <div v-if="msg.quote" class="chat-quote-card" @click.stop="openQuoteLink(msg.quote.public_url)">
+              <div class="cqc-body">
+                <div class="cqc-row">
+                  <span class="cqc-num">{{ msg.quote.quote_number }}</span>
+                  <span :class="['st-badge', 'st-' + msg.quote.status]" style="font-size:.6rem">
+                    {{ msg.quote.status.replace('_', ' ') }}
+                  </span>
+                </div>
+                <div class="cqc-customer">{{ msg.quote.customer_name }}</div>
+                <div class="cqc-total">R {{ fmt(msg.quote.total) }}</div>
+              </div>
+              <div class="cqc-view">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                  <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+                View Quote
+              </div>
+            </div>
+
+            <div class="chat-time">{{ fmtMsgTime(msg.created_at) }}</div>
+          </div>
+        </template>
+        <!-- anchor for scroll-to-bottom -->
+        <div class="chat-bottom-anchor"></div>
+      </div>
+
+      <!-- Input bar -->
+      <div class="chat-input-bar">
+        <div v-if="attachedQuote" class="chat-attach-pill">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+          <span>{{ attachedQuote.quote_number }} — {{ attachedQuote.customer_name }}</span>
+          <button class="chat-attach-remove" @click="attachedQuote = null">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+        <div class="chat-input-row">
+          <button class="chat-icon-btn" @click="openQuotePicker" title="Attach existing quote">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+          </button>
+          <button class="chat-icon-btn" @click="goToCreateFromChat" title="Create new quote">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="12" y1="18" x2="12" y2="12"/>
+              <line x1="9" y1="15" x2="15" y2="15"/>
+            </svg>
+          </button>
+          <input
+            class="chat-input"
+            type="text"
+            placeholder="Message…"
+            :value="msgInput"
+            @input="msgInput = $event.target.value"
+            @keyup.enter="sendMessage"
+          />
+          <button
+            class="chat-send-btn"
+            @click="sendMessage"
+            :disabled="msgSending || (!msgInput.trim() && !attachedQuote)"
+          >
+            <f7-preloader v-if="msgSending" :size="16" color="white"></f7-preloader>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Quote picker overlay -->
+    <div v-if="quotePickerOpen" class="qp-overlay" @click.self="quotePickerOpen = false">
+      <div class="qp-sheet">
+        <div class="qp-header">
+          <span class="qp-title">Attach Quote</span>
+          <button class="qp-close" @click="quotePickerOpen = false">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+        <div class="qp-search-wrap">
+          <i class="bi bi-search qp-search-icon"></i>
+          <input
+            class="qp-search-input"
+            type="text"
+            placeholder="Search by quote number or customer…"
+            :value="quotePickerSearch"
+            @input="quotePickerSearch = $event.target.value"
+            autocomplete="off"
+          />
+        </div>
+        <div class="qp-list">
+          <div v-if="!filteredPickerQuotes.length" class="qp-empty">
+            {{ quotations.length ? 'No quotes matched' : 'No quotes loaded — open Quotations first' }}
+          </div>
+          <div
+            v-for="q in filteredPickerQuotes"
+            :key="q.id"
+            class="qp-item"
+            @click="attachQuote(q)"
+          >
+            <div class="qp-item-row">
+              <span class="qp-item-num">{{ q.quote_number }}</span>
+              <span :class="['st-badge', 'st-' + q.status]" style="font-size:.62rem">{{ q.status.replace('_', ' ') }}</span>
+            </div>
+            <div class="qp-item-meta">{{ q.customer_name }} · R {{ fmt(q.total) }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </template>
+
   <!-- ── IMAGE LIGHTBOX ──────────────────────────────────────────────── -->
   <div v-if="previewOpen" class="lightbox" @click.self="closePreview">
     <button class="lb-close" @click="closePreview">
@@ -1028,10 +1265,12 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue';
 import Push from '../js/push.js';
 
-const API_BASE = 'https://mulwai.za/api';
+const API_BASE = (window.cordova || window.location.protocol === 'file:')
+  ? 'http://mulwai.za/api'
+  : '/api';
 
 export default {
   setup() {
@@ -1160,6 +1399,42 @@ export default {
     const detailLoading = ref(false);
     const detailError   = ref('');
     const shareCopied   = ref(false);
+
+    // ── Chat state ────────────────────────────────────────────────────────
+    const conversations     = ref([]);
+    const convLoading       = ref(false);
+    const convError         = ref('');
+    const selectedConv      = ref(null);
+    const messages          = ref([]);
+    const msgLoading        = ref(false);
+    const msgError          = ref('');
+    const msgInput          = ref('');
+    const msgSending        = ref(false);
+    const msgHasMore        = ref(false);
+    const msgLoadingMore    = ref(false);
+    const attachedQuote     = ref(null);
+    const quotePickerOpen   = ref(false);
+    const quotePickerSearch = ref('');
+    let   convPollTimer     = null;
+    let   msgPollTimer      = null;
+
+    const chatCreateMode = ref(false);
+
+    const totalUnread = computed(() =>
+      conversations.value.reduce((s, c) => s + (c.unread_count || 0), 0)
+    );
+
+    const filteredPickerQuotes = computed(() => {
+      const q   = quotePickerSearch.value.trim().toLowerCase();
+      const src = quotations.value;
+      const filtered = q
+        ? src.filter(x =>
+            x.quote_number?.toLowerCase().includes(q) ||
+            x.customer_name?.toLowerCase().includes(q)
+          )
+        : src;
+      return filtered.slice(0, 40);
+    });
 
     // ── Image preview ─────────────────────────────────────────────────────
     const previewOpen  = ref(false);
@@ -1658,6 +1933,199 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       }
     };
 
+    // ── Chat helpers ──────────────────────────────────────────────────────
+    const fmtConvTime = (dt) => {
+      if (!dt) return '';
+      const d   = new Date(dt.replace(' ', 'T'));
+      const now = new Date();
+      const ms  = now - d;
+      if (ms < 60000)    return 'just now';
+      if (ms < 3600000)  return Math.floor(ms / 60000) + 'm';
+      if (ms < 86400000) return Math.floor(ms / 3600000) + 'h';
+      const [, m, dd] = dt.split(' ')[0].split('-');
+      return `${parseInt(dd)}/${parseInt(m)}`;
+    };
+
+    const fmtMsgTime = (dt) => {
+      if (!dt) return '';
+      const t = (dt.split(' ')[1] || '').split(':');
+      return `${t[0]}:${t[1]}`;
+    };
+
+    const scrollChatToBottom = () => {
+      nextTick(() => {
+        const anchor = document.querySelector('.chat-bottom-anchor');
+        if (anchor) anchor.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      });
+    };
+
+    // ── Chat polling ──────────────────────────────────────────────────────
+    const stopConvPoll = () => {
+      if (convPollTimer) { clearInterval(convPollTimer); convPollTimer = null; }
+    };
+    const startConvPoll = () => {
+      stopConvPoll();
+      convPollTimer = setInterval(() => fetchConversations(true), 5000);
+    };
+    const stopMsgPoll = () => {
+      if (msgPollTimer) { clearInterval(msgPollTimer); msgPollTimer = null; }
+    };
+    const startMsgPoll = (convId) => {
+      stopMsgPoll();
+      msgPollTimer = setInterval(async () => {
+        try {
+          const data  = await apiFetch(`/conversations/${convId}/messages?limit=50`);
+          const msgs  = data.data ?? data;
+          const lastId = messages.value.at(-1)?.id || 0;
+          const fresh  = msgs.filter(m => m.id > lastId);
+          if (fresh.length) {
+            messages.value = [...messages.value, ...fresh];
+            scrollChatToBottom();
+          }
+        } catch (_) {}
+      }, 5000);
+    };
+
+    // ── Chat API calls ────────────────────────────────────────────────────
+    const fetchConversations = async (silent = false) => {
+      if (!silent) convLoading.value = true;
+      convError.value = '';
+      try {
+        const data = await apiFetch('/conversations');
+        conversations.value = data.data ?? data;
+      } catch (err) {
+        if (err.response?.status === 401) { logout(); return; }
+        if (!silent) convError.value = err.response?.data?.error || 'Failed to load conversations.';
+      } finally {
+        convLoading.value = false;
+      }
+    };
+
+    const fetchMessages = async (convId, beforeId = null) => {
+      if (beforeId) {
+        msgLoadingMore.value = true;
+      } else {
+        msgLoading.value = true;
+      }
+      msgError.value = '';
+      try {
+        let path = `/conversations/${convId}/messages?limit=50`;
+        if (beforeId) path += `&before_id=${beforeId}`;
+        const data = await apiFetch(path);
+        const msgs = data.data ?? data;
+        if (beforeId) {
+          messages.value = [...msgs, ...messages.value];
+        } else {
+          messages.value = msgs;
+          scrollChatToBottom();
+        }
+        msgHasMore.value = msgs.length >= 50;
+        const idx = conversations.value.findIndex(c => c.id === convId);
+        if (idx !== -1) conversations.value[idx].unread_count = 0;
+      } catch (err) {
+        if (err.response?.status === 401) { logout(); return; }
+        msgError.value = err.response?.data?.error || 'Failed to load messages.';
+      } finally {
+        msgLoading.value     = false;
+        msgLoadingMore.value = false;
+      }
+    };
+
+    const openConversation = async (conv) => {
+      selectedConv.value  = conv;
+      messages.value      = [];
+      msgHasMore.value    = false;
+      msgError.value      = '';
+      msgInput.value      = '';
+      attachedQuote.value = null;
+      view.value = 'chat';
+      await fetchMessages(conv.id);
+    };
+
+    const loadMoreMessages = () => {
+      if (!selectedConv.value || !messages.value.length || msgLoadingMore.value) return;
+      fetchMessages(selectedConv.value.id, messages.value[0].id);
+    };
+
+    const sendMessage = async () => {
+      const body = msgInput.value.trim();
+      if ((!body && !attachedQuote.value) || msgSending.value) return;
+      msgSending.value = true;
+      try {
+        const payload = { body: body || ' ' };
+        if (attachedQuote.value) payload.quote_id = attachedQuote.value.id;
+        const data = await apiFetch(`/conversations/${selectedConv.value.id}/messages`, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        const msg = data.data ?? data;
+        messages.value.push(msg);
+        msgInput.value      = '';
+        attachedQuote.value = null;
+        scrollChatToBottom();
+        // update conv list preview
+        const idx = conversations.value.findIndex(c => c.id === selectedConv.value.id);
+        if (idx !== -1) {
+          conversations.value[idx].last_message = {
+            body: msg.body, sender_username: msg.sender_username, created_at: msg.created_at,
+          };
+          conversations.value[idx].updated_at = msg.created_at;
+        }
+      } catch (err) {
+        if (err.response?.status === 401) { logout(); return; }
+      } finally {
+        msgSending.value = false;
+      }
+    };
+
+    const attachQuote = (q) => {
+      attachedQuote.value   = q;
+      quotePickerOpen.value = false;
+      quotePickerSearch.value = '';
+    };
+
+    const openQuotePicker = () => {
+      if (!quotations.value.length) fetchQuotations();
+      quotePickerOpen.value = true;
+    };
+
+    const openQuoteLink = (url) => {
+      if (!url) return;
+      if (window.cordova?.InAppBrowser) {
+        window.cordova.InAppBrowser.open(url, '_blank', 'location=yes,toolbar=yes,closebuttoncaption=Close');
+      } else {
+        window.open(url, '_blank');
+      }
+    };
+
+    const goToConversations = () => {
+      selectedConv.value = null;
+      view.value = 'conversations';
+      fetchConversations();
+    };
+
+    const goToCreateFromChat = () => {
+      chatCreateMode.value = true;
+      resetForm();
+      view.value = 'create';
+    };
+
+    const startConversation = async (u) => {
+      try {
+        const data = await apiFetch('/conversations', {
+          method: 'POST',
+          body: JSON.stringify({ user_id: u.id }),
+        });
+        const conv = data.data ?? data;
+        // Merge into local list so back-navigation shows it
+        const idx = conversations.value.findIndex(c => c.id === conv.id);
+        if (idx === -1) conversations.value.unshift(conv);
+        await openConversation(conv);
+      } catch (err) {
+        if (err.response?.status === 401) logout();
+      }
+    };
+
     // ── Edit state ────────────────────────────────────────────────────────
     const isEditing  = ref(false);
     const editingId  = ref(null);
@@ -1781,6 +2249,16 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
     };
 
     const goBack = () => {
+      if (view.value === 'chat') {
+        view.value = 'conversations';
+        fetchConversations(true);
+        return;
+      }
+      if (view.value === 'conversations') {
+        if (user.value.group_id === 1) goToCompanies();
+        else goToList();
+        return;
+      }
       if (view.value === 'user-password') {
         if (pwReturnView.value === 'users') goToUsers();
         else goToList();
@@ -1790,6 +2268,10 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
         goToCompanies();
       } else if (view.value === 'create' && isEditing.value) {
         cancelEdit();
+      } else if (view.value === 'create' && chatCreateMode.value) {
+        chatCreateMode.value = false;
+        resetForm();
+        view.value = 'chat';
       } else if (view.value === 'create') {
         if (selectedUser.value) {
           view.value = 'list';
@@ -1847,6 +2329,8 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
     };
 
     const logout = () => {
+      stopConvPoll();
+      stopMsgPoll();
       localStorage.removeItem('qt_token');
       localStorage.removeItem('qt_user');
       user.value           = {};
@@ -1864,6 +2348,9 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       userSearch.value      = '';
       companies.value       = [];
       selectedCompany.value = null;
+      conversations.value   = [];
+      selectedConv.value    = null;
+      messages.value        = [];
     };
 
     // ── Quotation ─────────────────────────────────────────────────────────
@@ -1898,17 +2385,31 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
           await apiUpload(`/quotation/${quoteId}/images`, fd).catch(() => {});
         }
 
-        createdQuote.value = {
-          quote_number:  data.quote_number,
-          customer_name: payload.customer_name,
-          quote_date:    payload.quote_date,
-          items_count:   data.items.length,
-          subtotal:      data.quote.subtotal,
-          vat_rate:      data.quote.vat_rate,
-          vat_amount:    data.quote.vat_amount,
-          total:         data.quote.total,
-        };
-        view.value = 'success';
+        if (chatCreateMode.value && selectedConv.value) {
+          chatCreateMode.value = false;
+          view.value = 'chat';
+          try {
+            const msgData = await apiFetch(`/conversations/${selectedConv.value.id}/messages`, {
+              method: 'POST',
+              body: JSON.stringify({ body: data.quote_number, quote_id: quoteId }),
+            });
+            const msg = msgData.data ?? msgData;
+            messages.value.push(msg);
+            scrollChatToBottom();
+          } catch (_) {}
+        } else {
+          createdQuote.value = {
+            quote_number:  data.quote_number,
+            customer_name: payload.customer_name,
+            quote_date:    payload.quote_date,
+            items_count:   data.items.length,
+            subtotal:      data.quote.subtotal,
+            vat_rate:      data.quote.vat_rate,
+            vat_amount:    data.quote.vat_amount,
+            total:         data.quote.total,
+          };
+          view.value = 'success';
+        }
       } catch (err) {
         const d = err.response?.data;
         if (d?.details)    quoteError.value = d.details;
@@ -1947,7 +2448,13 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       view.value = 'create';
     };
 
-    watch(view, () => { menuOpen.value = false; });
+    watch(view, (newView, oldView) => {
+      menuOpen.value = false;
+      if (oldView === 'conversations') stopConvPoll();
+      if (oldView === 'chat')          stopMsgPoll();
+      if (newView === 'conversations') startConvPoll();
+      if (newView === 'chat' && selectedConv.value) startMsgPoll(selectedConv.value.id);
+    });
 
     // ── Push notifications ────────────────────────────────────────────────
     // alreadyLoggedIn: true when restoring a session so onLogin() fires
@@ -1998,6 +2505,13 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       searchQuery, dateFrom, dateTo, hasActiveFilters, clearFilters, callPhone,
       filteredQuotations, fetchQuotations, setListFilter, goToList, goToCreate,
       selectedQuote, detailLoading, detailError, shareCopied, openQuotation, shareQuotation, openPublicView,
+      conversations, convLoading, convError, selectedConv, totalUnread,
+      messages, msgLoading, msgError, msgInput, msgSending, msgHasMore, msgLoadingMore,
+      attachedQuote, quotePickerOpen, quotePickerSearch, filteredPickerQuotes,
+      fetchConversations, openConversation, loadMoreMessages, sendMessage,
+      attachQuote, openQuotePicker, openQuoteLink, goToConversations, startConversation,
+      chatCreateMode, goToCreateFromChat,
+      fmtConvTime, fmtMsgTime,
       previewOpen, previewIndex, openPreview, closePreview,
       uploadedImages, removedImageSlots, onImgsSelected, onImgDrop, removeUploadedImage,
       isEditing, editStatus, goToEdit, cancelEdit, submitEdit, goBack,
