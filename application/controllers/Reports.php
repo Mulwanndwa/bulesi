@@ -95,6 +95,19 @@ class Reports extends MY_Controller {
         $this->load->view('layouts/footer');
     }
 
+    public function delete_message($id)
+    {
+        $this->require_group(['Admin']);
+        if ($this->input->method() !== 'post') {
+            show_404();
+        }
+        $this->db->where('id', (int)$id)->delete('messages');
+        $ok = $this->db->affected_rows() > 0;
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode(['success' => $ok]));
+    }
+
     public function chats($period = 'this_month')
     {
         if (!array_key_exists($period, $this->periods)) {
@@ -116,15 +129,15 @@ class Reports extends MY_Controller {
     private function _render_chats($period, $start, $end)
     {
         $data = [
-            'title'         => 'Chat Report',
-            'user'          => $this->current_user,
-            'period'        => $period,
-            'periods'       => $this->periods,
-            'start'         => $start,
-            'end'           => $end,
-            'kpis'          => $this->Report_model->get_chat_kpis($start, $end),
-            'by_user'       => $this->Report_model->get_chat_by_user($start, $end),
-            'recent'        => $this->Report_model->get_chat_recent($start, $end),
+            'title'          => 'Chat Report',
+            'user'           => $this->current_user,
+            'period'         => $period,
+            'periods'        => $this->periods,
+            'start'          => $start,
+            'end'            => $end,
+            'kpis'           => $this->Report_model->get_chat_kpis($start, $end),
+            'by_user'        => $this->Report_model->get_chat_by_user($start, $end),
+            'grouped'        => $this->Report_model->get_chat_grouped_by_user($start, $end),
         ];
 
         $this->load->view('layouts/header', $data);

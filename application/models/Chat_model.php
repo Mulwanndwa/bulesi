@@ -3,6 +3,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Chat_model extends CI_Model {
 
+    public function __construct()
+    {
+        parent::__construct();
+        // Auto-add group_id column for multi-image batch grouping
+        $cols = array_column($this->db->field_data('messages'), 'name');
+        if (!in_array('group_id', $cols)) {
+            $this->db->query("ALTER TABLE messages ADD COLUMN group_id VARCHAR(32) NULL DEFAULT NULL, ADD INDEX idx_msg_group (group_id)");
+        }
+    }
+
     // ── Conversations ─────────────────────────────────────────────────
 
     /**
@@ -98,7 +108,7 @@ class Chat_model extends CI_Model {
     public function get_messages($conversation_id, $limit = 50, $before_id = NULL)
     {
         $sql = "
-            SELECT m.id, m.conversation_id, m.sender_id, m.body, m.quote_id, m.image_path, m.created_at,
+            SELECT m.id, m.conversation_id, m.sender_id, m.body, m.quote_id, m.image_path, m.group_id, m.created_at,
                    u.username AS sender_username, u.first_name AS sender_first_name, u.last_name AS sender_last_name,
                    q.quote_number, q.customer_name, q.total, q.status AS quote_status,
                    q.public_token AS quote_token
@@ -122,7 +132,7 @@ class Chat_model extends CI_Model {
         return array_reverse($rows);
     }
 
-    public function send_message($conversation_id, $sender_id, $body, $quote_id = NULL, $image_path = NULL)
+    public function send_message($conversation_id, $sender_id, $body, $quote_id = NULL, $image_path = NULL, $group_id = NULL)
     {
         $this->db->insert('messages', [
             'conversation_id' => (int)$conversation_id,
@@ -130,6 +140,7 @@ class Chat_model extends CI_Model {
             'body'            => $body,
             'quote_id'        => $quote_id  ? (int)$quote_id : NULL,
             'image_path'      => $image_path ?: NULL,
+            'group_id'        => $group_id  ?: NULL,
         ]);
         $msg_id = $this->db->insert_id();
 
@@ -143,7 +154,7 @@ class Chat_model extends CI_Model {
     public function get_message($id)
     {
         return $this->db->query("
-            SELECT m.id, m.conversation_id, m.sender_id, m.body, m.quote_id, m.image_path, m.created_at,
+            SELECT m.id, m.conversation_id, m.sender_id, m.body, m.quote_id, m.image_path, m.group_id, m.created_at,
                    u.username AS sender_username, u.first_name AS sender_first_name, u.last_name AS sender_last_name,
                    q.quote_number, q.customer_name, q.total, q.status AS quote_status,
                    q.public_token AS quote_token
@@ -236,7 +247,9 @@ class Chat_model extends CI_Model {
 
     private function _format_message($m)
     {
-        $senderFull = trim(($m->sender_first_name ?? '') . ' ' . ($m->sender_last_name ?? '')) ?: $m->sender_username;
+        $base        = rtrim($this->config->item('base_url'), '/') . '/';
+        $senderFull  = trim(($m->sender_first_name ?? '') . ' ' . ($m->sender_last_name ?? '')) ?: $m->sender_username;
+
         $out = [
             'id'                  => (int)$m->id,
             'conversation_id'     => (int)$m->conversation_id,
@@ -246,7 +259,8 @@ class Chat_model extends CI_Model {
             'sender_last_name'    => $m->sender_last_name   ?: NULL,
             'sender_full_name'    => $senderFull,
             'body'                => $m->body,
-            'image_url'           => !empty($m->image_path) ? base_url($m->image_path) : NULL,
+            'image_url'           => !empty($m->image_path) ? $base . ltrim($m->image_path, '/') : NULL,
+            'group_id'            => $m->group_id ?? NULL,
             'created_at'          => $m->created_at,
             'quote'               => NULL,
         ];
@@ -258,7 +272,7 @@ class Chat_model extends CI_Model {
                 'customer_name'=> $m->customer_name,
                 'total'        => (float)$m->total,
                 'status'       => $m->quote_status,
-                'public_url'   => !empty($m->quote_token) ? base_url('q/' . $m->quote_token) : NULL,
+                'public_url'   => !empty($m->quote_token) ? $base . 'q/' . $m->quote_token : NULL,
             ];
         }
 

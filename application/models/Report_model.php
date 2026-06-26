@@ -270,6 +270,41 @@ class Report_model extends CI_Model {
         ", [$start . ' 00:00:00', $end . ' 23:59:59', (int)$limit])->result();
     }
 
+    /**
+     * Returns all messages in the period grouped by sender.
+     * Result is a nested array: [ sender_id => [ 'user' => ..., 'messages' => [...] ] ]
+     */
+    public function get_chat_grouped_by_user($start, $end)
+    {
+        $rows = $this->db->query("
+            SELECT
+                m.id, m.body, m.image_path, m.created_at, m.conversation_id,
+                u.id AS sender_id,
+                u.username AS sender_username,
+                TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS sender_full_name,
+                q.quote_number
+            FROM messages m
+            JOIN auth_users u ON u.id = m.sender_id
+            LEFT JOIN quotations q ON q.id = m.quote_id
+            WHERE m.created_at BETWEEN ? AND ?
+            ORDER BY u.id ASC, m.created_at DESC
+        ", [$start . ' 00:00:00', $end . ' 23:59:59'])->result();
+
+        $grouped = [];
+        foreach ($rows as $m) {
+            $uid = (int)$m->sender_id;
+            if (!isset($grouped[$uid])) {
+                $grouped[$uid] = [
+                    'username'  => $m->sender_username,
+                    'full_name' => trim($m->sender_full_name) ?: $m->sender_username,
+                    'messages'  => [],
+                ];
+            }
+            $grouped[$uid]['messages'][] = $m;
+        }
+        return $grouped;
+    }
+
     public function get_status_flow($start, $end)
     {
         return $this->db->query("

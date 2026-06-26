@@ -889,15 +889,15 @@ class Api extends CI_Controller {
             foreach ($files as $k => $v) $files[$k] = [$v];
         }
 
-        $upload_dir    = FCPATH . 'uploads/quotations/';
-        $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
+        $upload_dir = FCPATH . 'uploads/quotations/';
 
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, TRUE);
 
         $uploaded = 0;
         for ($i = 0, $n = count($files['name']); $i < $n; $i++) {
             if ($files['error'][$i] !== UPLOAD_ERR_OK) continue;
-            if (!in_array(strtolower($files['type'][$i]), $allowed_types)) continue;
+            $mime = function_exists('mime_content_type') ? strtolower(mime_content_type($files['tmp_name'][$i])) : strtolower($files['type'][$i]);
+            if (strpos($mime, 'image/') !== 0) continue;
 
             // Find next free slot (re-fetch each iteration so concurrent slots are correct)
             $fresh = $this->Quotation_model->get_by_id((int)$id);
@@ -1055,9 +1055,9 @@ class Api extends CI_Controller {
             return $this->_json(['error' => 'Method Not Allowed'], 405);
         }
 
-        // Support both multipart (file upload) and JSON bodies
-        $is_multipart = !empty($_FILES['image']['name']);
-        if ($is_multipart) {
+        // Support multipart (file upload) and JSON bodies
+        $has_files = !empty($_FILES['images']['name'][0]) || !empty($_FILES['image']['name']);
+        if ($has_files) {
             $text     = $this->_str($_POST['body']     ?? '');
             $quote_id = isset($_POST['quote_id']) ? (int)$_POST['quote_id'] : NULL;
         } else {
@@ -1066,16 +1066,17 @@ class Api extends CI_Controller {
             $quote_id = isset($body['quote_id']) ? (int)$body['quote_id'] : NULL;
         }
 
-        $image_path = NULL;
-        if ($is_multipart) {
-            $image_path = $this->_upload_chat_image((int)$id);
-            if ($image_path === FALSE) {
-                return $this->_json(['error' => 'Invalid image. Allowed: jpg, jpeg, png, webp, gif — max 5 MB.'], 422);
+        // Upload all images (supports images[] array or legacy single image field)
+        $image_paths = [];
+        if ($has_files) {
+            $image_paths = $this->_upload_chat_images((int)$id);
+            if ($image_paths === FALSE) {
+                return $this->_json(['error' => 'One or more files are invalid. Any image type is allowed — max 5 MB each.'], 422);
             }
         }
 
-        if (!$text && !$image_path) {
-            return $this->_json(['error' => 'body or image is required'], 422);
+        if (!$text && empty($image_paths)) {
+            return $this->_json(['error' => 'body or at least one image is required'], 422);
         }
 
         if ($quote_id) {
@@ -1085,13 +1086,38 @@ class Api extends CI_Controller {
             }
         }
 
-        $msg_id = $this->Chat_model->send_message((int)$id, (int)$user->id, $text, $quote_id, $image_path);
-        $msg    = $this->Chat_model->get_message($msg_id);
+        // Create one message per image; text + quote attach to the first message only
+        $created = [];
+        if (!empty($image_paths)) {
+            $group_id = (count($image_paths) > 1) ? bin2hex(random_bytes(8)) : NULL;
+            foreach ($image_paths as $i => $path) {
+                $msg_text = ($i === 0) ? $text : '';
+                $msg_qid  = ($i === 0) ? $quote_id : NULL;
+                $msg_id   = $this->Chat_model->send_message((int)$id, (int)$user->id, $msg_text, $msg_qid, $path, $group_id);
+                $created[] = $this->Chat_model->format_message($this->Chat_model->get_message($msg_id));
+            }
+        } else {
+            $msg_id  = $this->Chat_model->send_message((int)$id, (int)$user->id, $text, $quote_id, NULL);
+            $created[] = $this->Chat_model->format_message($this->Chat_model->get_message($msg_id));
+        }
 
-        // Push notification to all other participants who have a device token
+        // Push notification — receivers only, one notification covering all messages
         $tokens = $this->Chat_model->get_recipient_tokens((int)$id, (int)$user->id);
+        $sender_token = $user->push_token ?? '';
+        if ($sender_token) {
+            $tokens = array_values(array_filter($tokens, fn($t) => $t !== $sender_token));
+        }
+
         if ($tokens) {
-            $preview = $image_path ? '📷 Photo' : ($text ? (mb_strlen($text) > 80 ? mb_substr($text, 0, 77) . '…' : $text) : '📷 Photo');
+            $img_count = count($image_paths);
+            if ($img_count > 1) {
+                $preview = "📷 {$img_count} Photos";
+            } elseif ($img_count === 1) {
+                $preview = $text ? '📷 ' . (mb_strlen($text) > 60 ? mb_substr($text, 0, 57) . '…' : $text) : '📷 Photo';
+            } else {
+                $preview = mb_strlen($text) > 80 ? mb_substr($text, 0, 77) . '…' : $text;
+            }
+
             send_push(
                 $tokens,
                 $user->username,
@@ -1099,14 +1125,17 @@ class Api extends CI_Controller {
                 [
                     'type'            => 'chat_message',
                     'conversation_id' => (string)$id,
-                    'message_id'      => (string)$msg_id,
+                    'message_id'      => (string)($created[0]['id'] ?? ''),
+                    'sender_id'       => (string)$user->id,
                 ]
             );
         }
 
+        // Return single object when one message, array when multiple
         return $this->_json([
             'success' => TRUE,
-            'data'    => $this->Chat_model->format_message($msg),
+            'count'   => count($created),
+            'data'    => count($created) === 1 ? $created[0] : $created,
         ], 201);
     }
 
@@ -1135,33 +1164,120 @@ class Api extends CI_Controller {
         return $this->_json(['success' => TRUE]);
     }
 
-    // ── Upload a chat image ───────────────────────────────────────────
-    private function _upload_chat_image($conversation_id)
+    // ── Upload one or more chat images ───────────────────────────────
+    // Accepts images[] (multiple) or legacy image (single).
+    // Returns array of saved paths, FALSE if any file is invalid, [] if none supplied.
+    private function _upload_chat_images($conversation_id)
     {
-        $file = $_FILES['image'] ?? [];
-        if (empty($file['name']) || $file['error'] !== UPLOAD_ERR_OK) return NULL;
-        if ($file['size'] > 5 * 1024 * 1024) return FALSE;
-
-        $allowed_exts  = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-        $allowed_mimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-
-        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        if (!in_array($ext, $allowed_exts)) return FALSE;
-
-        if (function_exists('mime_content_type')) {
-            $mime = mime_content_type($file['tmp_name']);
-            if (!in_array(strtolower($mime), $allowed_mimes)) return FALSE;
+        // Normalise both images[] and legacy image into a flat list of file entries
+        $files = [];
+        if (!empty($_FILES['images']['name'])) {
+            // Multiple-file input: images[]
+            $count = count($_FILES['images']['name']);
+            for ($i = 0; $i < $count; $i++) {
+                $files[] = [
+                    'name'     => $_FILES['images']['name'][$i],
+                    'tmp_name' => $_FILES['images']['tmp_name'][$i],
+                    'error'    => $_FILES['images']['error'][$i],
+                    'size'     => $_FILES['images']['size'][$i],
+                ];
+            }
+        } elseif (!empty($_FILES['image']['name'])) {
+            // Legacy single-file input: image
+            $files[] = [
+                'name'     => $_FILES['image']['name'],
+                'tmp_name' => $_FILES['image']['tmp_name'],
+                'error'    => $_FILES['image']['error'],
+                'size'     => $_FILES['image']['size'],
+            ];
         }
 
+        if (empty($files)) return [];
+
         $upload_dir = FCPATH . 'uploads/chat/';
+
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, TRUE);
         @chmod($upload_dir, 0777);
 
-        $fname = 'chat_' . $conversation_id . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-        if (move_uploaded_file($file['tmp_name'], $upload_dir . $fname)) {
-            return 'uploads/chat/' . $fname;
+        $paths = [];
+        foreach ($files as $file) {
+            if ($file['error'] !== UPLOAD_ERR_OK) return FALSE;
+            if ($file['size'] > 5 * 1024 * 1024)  return FALSE;
+
+            // Accept any image/* MIME type
+            if (function_exists('mime_content_type')) {
+                $mime = strtolower(mime_content_type($file['tmp_name']));
+                if (strpos($mime, 'image/') !== 0) return FALSE;
+            }
+
+            $ext      = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION)) ?: 'jpg';
+            $save_ext = $ext;
+            $fname    = 'chat_' . $conversation_id . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $save_ext;
+            $dest     = $upload_dir . $fname;
+
+            if (!move_uploaded_file($file['tmp_name'], $dest)) return FALSE;
+
+            // Compress / resize in-place
+            $this->_compress_image($dest, $save_ext);
+
+            $paths[] = 'uploads/chat/' . $fname;
         }
-        return FALSE;
+
+        return $paths;
+    }
+
+    // ── Compress a saved image in-place (GD) ──────────────────────────
+    // Max 1600px on the longest side, JPEG quality 75, PNG level 7.
+    private function _compress_image($path, $ext)
+    {
+        if (!function_exists('imagecreatefromjpeg')) return; // GD not available
+
+        $info = @getimagesize($path);
+        if (!$info) return;
+
+        switch ($info[2]) {
+            case IMAGETYPE_JPEG: $src = @imagecreatefromjpeg($path); break;
+            case IMAGETYPE_PNG:  $src = @imagecreatefrompng($path);  break;
+            case IMAGETYPE_WEBP: $src = function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : NULL; break;
+            case IMAGETYPE_GIF:  $src = @imagecreatefromgif($path);  break;
+            default: return;
+        }
+
+        if (!$src) return;
+
+        $orig_w = imagesx($src);
+        $orig_h = imagesy($src);
+        $max    = 1600;
+
+        if ($orig_w > $max || $orig_h > $max) {
+            $ratio = $orig_w > $orig_h ? $max / $orig_w : $max / $orig_h;
+            $new_w = (int)round($orig_w * $ratio);
+            $new_h = (int)round($orig_h * $ratio);
+        } else {
+            $new_w = $orig_w;
+            $new_h = $orig_h;
+        }
+
+        $dst = imagecreatetruecolor($new_w, $new_h);
+
+        // Preserve transparency for PNG
+        if ($ext === 'png') {
+            imagealphablending($dst, FALSE);
+            imagesavealpha($dst, TRUE);
+            $transparent = imagecolorallocatealpha($dst, 255, 255, 255, 127);
+            imagefilledrectangle($dst, 0, 0, $new_w, $new_h, $transparent);
+        }
+
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $new_w, $new_h, $orig_w, $orig_h);
+
+        if ($ext === 'png') {
+            imagepng($dst, $path, 7); // 0–9, higher = smaller file
+        } else {
+            imagejpeg($dst, $path, 75); // 0–100, lower = smaller file
+        }
+
+        imagedestroy($src);
+        imagedestroy($dst);
     }
 
     // ── Format a conversation row for API output ──────────────────────
