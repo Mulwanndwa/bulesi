@@ -333,7 +333,7 @@
           @click="openCompany(c)"
         >
           <div class="co-grid-logo">
-            <img v-if="c.logo_url" :src="c.logo_url" :alt="c.name" class="co-grid-img" />
+            <img v-if="c.logo_url" :src="imgUrl(c.logo_url)" :alt="c.name" class="co-grid-img" />
             <div v-else class="co-grid-placeholder">
               <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -1201,7 +1201,7 @@
 
     <div v-else class="conv-list">
       <div
-        v-for="c in conversations"
+        v-for="c in conversations.filter(c => c.participants?.length)"
         :key="c.id"
         class="conv-item"
         @click="openConversation(c)"
@@ -1267,7 +1267,12 @@
             :class="['chat-msg-wrap', msg.sender_id === user.id ? 'chat-mine' : 'chat-theirs']"
           >
             <div v-if="msg.sender_id !== user.id" class="chat-sender-name">{{ msg.sender_username }}</div>
-            <div class="chat-bubble">{{ msg.body }}</div>
+            <div v-if="msg.body" class="chat-bubble">{{ msg.body }}</div>
+
+            <!-- Image -->
+            <div v-if="msg.image_url" class="chat-img-msg" @click="openQuoteLink(msg.image_url)">
+              <img :src="imgUrl(msg.image_url)" loading="lazy" />
+            </div>
 
             <!-- Quote card -->
             <div v-if="msg.quote" class="chat-quote-card" @click.stop="openQuoteLink(msg.quote.public_url)">
@@ -1299,6 +1304,7 @@
 
       <!-- Input bar -->
       <div class="chat-input-bar">
+        <!-- Attached quote pill -->
         <div v-if="attachedQuote" class="chat-attach-pill">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -1312,7 +1318,16 @@
             <i class="bi bi-x-lg"></i>
           </button>
         </div>
+        <!-- Image preview pill -->
+        <div v-if="msgImagePreview" class="chat-img-preview">
+          <img :src="msgImagePreview" class="chat-img-thumb" />
+          <button class="chat-attach-remove" @click="removeChatImage">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
         <div class="chat-input-row">
+          <!-- Hidden file input -->
+          <input type="file" accept="image/*" style="display:none" id="chat-img-input" @change="onChatImagePicked" />
           <button class="chat-icon-btn" @click="openQuotePicker" title="Attach existing quote">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
@@ -1326,6 +1341,12 @@
               <line x1="9" y1="15" x2="15" y2="15"/>
             </svg>
           </button>
+          <label for="chat-img-input" class="chat-icon-btn" title="Send image" style="cursor:pointer;margin:0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+          </label>
           <input
             class="chat-input"
             type="text"
@@ -1337,7 +1358,7 @@
           <button
             class="chat-send-btn"
             @click="sendMessage"
-            :disabled="msgSending || (!msgInput.trim() && !attachedQuote)"
+            :disabled="msgSending || (!msgInput.trim() && !attachedQuote && !msgImage)"
           >
             <f7-preloader v-if="msgSending" :size="16" color="white"></f7-preloader>
             <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -1427,7 +1448,7 @@ import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue';
 import Push from '../js/push.js';
 
 const API_BASE = (window.cordova || window.location.protocol === 'file:')
-  ? 'http://mulwai.za/api'
+  ? 'http://bulesiadmin.co.za/api'
   : '/api';
 
 export default {
@@ -1584,8 +1605,11 @@ export default {
     const attachedQuote     = ref(null);
     const quotePickerOpen   = ref(false);
     const quotePickerSearch = ref('');
+    const msgImage          = ref(null);
+    const msgImagePreview   = ref(null);
     let   convPollTimer     = null;
     let   msgPollTimer      = null;
+    let   bgUnreadTimer     = null;
 
     const chatCreateMode    = ref(false);
     const userPickerOpen    = ref(false);
@@ -1701,6 +1725,12 @@ export default {
     });
 
     // ── Helpers ───────────────────────────────────────────────────────────
+    const imgUrl = (url) => {
+      if (!url) return null;
+      if (window.cordova || window.location.protocol === 'file:') return url;
+      try { return new URL(url).pathname; } catch { return url; }
+    };
+
     const lineRaw   = i => Math.round(Math.max(0, i.quantity) * Math.max(0, i.unit_price) * 100) / 100;
     const lineTotal = i => fmt(lineRaw(i));
     const fmt       = v => Number(v || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -2146,6 +2176,16 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       });
     };
 
+    // ── Background unread badge poll (runs while logged in) ──────────────
+    const stopBgUnreadPoll = () => {
+      if (bgUnreadTimer) { clearInterval(bgUnreadTimer); bgUnreadTimer = null; }
+    };
+    const startBgUnreadPoll = () => {
+      stopBgUnreadPoll();
+      fetchConversations(true);
+      bgUnreadTimer = setInterval(() => fetchConversations(true), 30000);
+    };
+
     // ── Chat polling ──────────────────────────────────────────────────────
     const stopConvPoll = () => {
       if (convPollTimer) { clearInterval(convPollTimer); convPollTimer = null; }
@@ -2225,6 +2265,8 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       msgError.value      = '';
       msgInput.value      = '';
       attachedQuote.value = null;
+      msgImage.value      = null;
+      msgImagePreview.value = null;
       view.value = 'chat';
       await fetchMessages(conv.id);
     };
@@ -2236,25 +2278,36 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
 
     const sendMessage = async () => {
       const body = msgInput.value.trim();
-      if ((!body && !attachedQuote.value) || msgSending.value) return;
+      if ((!body && !attachedQuote.value && !msgImage.value) || msgSending.value) return;
       msgSending.value = true;
       try {
-        const payload = { body: body || ' ' };
-        if (attachedQuote.value) payload.quote_id = attachedQuote.value.id;
-        const data = await apiFetch(`/conversations/${selectedConv.value.id}/messages`, {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
+        let data;
+        if (msgImage.value) {
+          const fd = new FormData();
+          fd.append('image', msgImage.value);
+          if (body)                fd.append('body',     body);
+          if (attachedQuote.value) fd.append('quote_id', attachedQuote.value.id);
+          data = await apiUpload(`/conversations/${selectedConv.value.id}/messages`, fd);
+        } else {
+          const payload = { body: body || ' ' };
+          if (attachedQuote.value) payload.quote_id = attachedQuote.value.id;
+          data = await apiFetch(`/conversations/${selectedConv.value.id}/messages`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          });
+        }
         const msg = data.data ?? data;
         messages.value.push(msg);
         msgInput.value      = '';
         attachedQuote.value = null;
+        if (msgImagePreview.value) URL.revokeObjectURL(msgImagePreview.value);
+        msgImage.value        = null;
+        msgImagePreview.value = null;
         scrollChatToBottom();
-        // update conv list preview
         const idx = conversations.value.findIndex(c => c.id === selectedConv.value.id);
         if (idx !== -1) {
           conversations.value[idx].last_message = {
-            body: msg.body, sender_username: msg.sender_username, created_at: msg.created_at,
+            body: msg.body || '📷 Photo', sender_username: msg.sender_username, created_at: msg.created_at,
           };
           conversations.value[idx].updated_at = msg.created_at;
         }
@@ -2263,6 +2316,21 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       } finally {
         msgSending.value = false;
       }
+    };
+
+    const onChatImagePicked = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (msgImagePreview.value) URL.revokeObjectURL(msgImagePreview.value);
+      msgImage.value        = file;
+      msgImagePreview.value = URL.createObjectURL(file);
+      e.target.value = '';
+    };
+
+    const removeChatImage = () => {
+      if (msgImagePreview.value) URL.revokeObjectURL(msgImagePreview.value);
+      msgImage.value        = null;
+      msgImagePreview.value = null;
     };
 
     const attachQuote = (q) => {
@@ -2518,6 +2586,7 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
         user.value = data.user;
         loginForm.password = '';
         Push.onLogin();   // send any FCM token that arrived before auth
+        startBgUnreadPoll();
         if (data.user.group_id === 1) {
           goToCompanies();
         } else {
@@ -2573,6 +2642,7 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
         localStorage.setItem('qt_user',  JSON.stringify(data.user));
         user.value = data.user;
         initPush(true);
+        startBgUnreadPoll();
         if (data.user.group_id === 1) goToCompanies();
         else goToList();
       } catch (_) {
@@ -2583,6 +2653,7 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
     };
 
     const logout = () => {
+      stopBgUnreadPoll();
       stopConvPoll();
       stopMsgPoll();
       localStorage.removeItem('qt_token');
@@ -2722,8 +2793,33 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       whenReady(() => {
         Push.init(
           apiFetch,
-          (message) => {
-            if (!message.tap) return;
+          async (message) => {
+            // Foreground: refresh unread badge silently
+            if (!message.tap) {
+              fetchConversations(true);
+              return;
+            }
+
+            // Tapped notification — deep-link to conversation or quotation
+            const convId = message.conversation_id || message.data?.conversation_id;
+            if (convId) {
+              const id   = parseInt(convId);
+              const conv = conversations.value.find(c => c.id === id);
+              if (conv) {
+                await openConversation(conv);
+              } else {
+                try {
+                  const data = await apiFetch(`/conversations/${id}`);
+                  const c    = data.data ?? data;
+                  if (!conversations.value.find(x => x.id === c.id)) {
+                    conversations.value.unshift(c);
+                  }
+                  await openConversation(c);
+                } catch (_) {}
+              }
+              return;
+            }
+
             const qid = message.quotation_id || message.data?.quotation_id;
             if (qid) openQuotation({ id: parseInt(qid) });
           }
@@ -2739,6 +2835,7 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       if (token && stored) {
         user.value = JSON.parse(stored);
         initPush(true);   // deviceready → Push.init → Push.onLogin in sequence
+        startBgUnreadPoll();
         if (user.value.group_id === 1) {
           goToCompanies();
         } else {
@@ -2766,13 +2863,14 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       attachedQuote, quotePickerOpen, quotePickerSearch, filteredPickerQuotes,
       fetchConversations, openConversation, loadMoreMessages, sendMessage,
       attachQuote, openQuotePicker, openQuoteLink, goToConversations, startConversation,
+      msgImage, msgImagePreview, onChatImagePicked, removeChatImage,
       chatCreateMode, goToCreateFromChat,
       userPickerOpen, userPickerSearch, userPickerLoading, filteredPickerUsers, openUserPicker,
       fmtConvTime, fmtMsgTime,
       previewOpen, previewIndex, openPreview, closePreview,
       uploadedImages, removedImageSlots, onImgsSelected, onImgDrop, removeUploadedImage,
       isEditing, editStatus, goToEdit, cancelEdit, submitEdit, goBack,
-      lineTotal, recalc, fmt,
+      lineTotal, recalc, fmt, imgUrl,
       users, usersLoading, usersError, userSearch, filteredUsers,
       selectedUser, isAdmin, homeView, fetchUsers, openUser, goToUsers,
       groups, groupsLoading, showUserPw, userCreateLoading, userCreateError, userForm,

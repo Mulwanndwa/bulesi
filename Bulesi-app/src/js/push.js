@@ -4,11 +4,13 @@
  * so it goes through the exact same fetch path as every other API call.
  */
 
+const CHANNEL_ID = 'bulesi_messages';
+
 const Push = {
   _ready:        false,
-  _postFn:       null,   // apiFetch-compatible: (path, opts) => Promise
+  _postFn:       null,
   _pendingToken: null,
-  _setupDone:    false,  // true once _setup has issued its own getToken call
+  _setupDone:    false,
 
   _available() {
     return !!(window.cordova && window.FirebasePlugin);
@@ -16,8 +18,7 @@ const Push = {
 
   async _sendToken(fcmToken) {
     if (!fcmToken || !this._postFn) return;
-    if (!localStorage.getItem('qt_token')) return;   // not logged in
-
+    if (!localStorage.getItem('qt_token')) return;
     try {
       await this._postFn('/push_token', {
         method: 'POST',
@@ -25,23 +26,17 @@ const Push = {
       });
       this._pendingToken = null;
     } catch (err) {
-      // Network wasn't ready (common at startup — FCM returns a cached token
-      // before connectivity settles). Park the token so the next onLogin retries.
       this._pendingToken = fcmToken;
       console.warn('[Push] sendToken error:', err);
     }
   },
 
-  // Called by home.vue after a successful login or session restore.
   onLogin() {
     if (this._pendingToken) {
       this._sendToken(this._pendingToken);
       return;
     }
-
-    // _setup already issued getToken — don't fire a second concurrent request.
     if (this._setupDone) return;
-
     if (this._available() && this._ready) {
       FirebasePlugin.getToken(
         (token) => { if (token) this._sendToken(token); },
@@ -50,8 +45,31 @@ const Push = {
     }
   },
 
+  _createChannel() {
+    if (!window.FirebasePlugin?.createChannel) return;
+    FirebasePlugin.createChannel(
+      {
+        id:          CHANNEL_ID,
+        name:        'Messages',
+        description: 'Chat and quotation notifications',
+        importance:  4,       // IMPORTANCE_HIGH — heads-up on Android 8+
+        vibration:   true,
+        sound:       'default',
+        badge:       true,
+        visibility:  1,       // VISIBILITY_PUBLIC
+        lightColor:  '#1e7d1e',
+      },
+      () => {},
+      (err) => console.warn('[Push] createChannel error:', err)
+    );
+  },
+
   _setup(onMessage) {
     this._setupDone = true;
+
+    // Android 8+ requires a channel for heads-up / sound / badges
+    this._createChannel();
+
     FirebasePlugin.getToken(
       (token) => {
         if (!token) return;
@@ -85,8 +103,9 @@ const Push = {
   /**
    * @param {Function} postFn   The apiFetch helper from home.vue.
    * @param {Function} onMessage Called for every incoming message.
-   *   message.tap === true  → user tapped a notification.
-   *   message.quotation_id  → deep-link into that quotation.
+   *   message.tap === true  → user tapped the notification.
+   *   message.conversation_id → open that chat.
+   *   message.quotation_id    → deep-link into that quotation.
    */
   init(postFn, onMessage) {
     if (!this._available() || this._ready) return;

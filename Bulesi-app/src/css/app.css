@@ -267,8 +267,8 @@
   margin: 0 auto;
   padding: 4px 0 40px;
 }
-.list-strong ul, .ios .list-strong-ios ul, .md .list-strong-md ul{
-  /* padding-bottom: 1em !important; */
+.list-strong ul, .ios .list-strong-ios ul, .md .list-strong-md ul {
+  padding-bottom: 0;
 }
 /* ── Section headings ────────────────────────────────────────────────── */
 .section-head {
@@ -925,6 +925,7 @@ background-color: red;
   padding: 0 10px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1836,6 +1837,34 @@ select.lf-input { appearance: none; background: none; }
 }
 .chat-attach-pill span  { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-attach-remove     { background: none; border: none; color: #1e7d1e; padding: 0 2px; cursor: pointer; font-size: .68rem; width: fit-content; }
+.chat-img-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.chat-img-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 2px solid rgba(30,125,30,.2);
+}
+.chat-img-msg {
+  display: block;
+  margin-top: 4px;
+  border-radius: 12px;
+  overflow: hidden;
+  max-width: 220px;
+  cursor: zoom-in;
+}
+.chat-img-msg img {
+  width: 100%;
+  display: block;
+  border-radius: 12px;
+  max-height: 260px;
+  object-fit: cover;
+}
 .chat-input-row {
   display: flex;
   align-items: center;
