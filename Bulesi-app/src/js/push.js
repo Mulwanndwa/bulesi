@@ -36,7 +36,6 @@ const Push = {
       this._sendToken(this._pendingToken);
       return;
     }
-    if (this._setupDone) return;
     if (this._available() && this._ready) {
       FirebasePlugin.getToken(
         (token) => { if (token) this._sendToken(token); },
