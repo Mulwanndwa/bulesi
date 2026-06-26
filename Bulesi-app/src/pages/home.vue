@@ -13,7 +13,7 @@
           <span class="nav-brand-icon">
             <img src="../img/logo.png" alt="Bulise" style="width:18px;height:18px;object-fit:contain;" />
           </span>
-          {{ user.username }}
+          {{ user.first_name || user.username }}
         </div>
       </f7-nav-left>
       <f7-nav-title v-if="view === 'conversations'">Messages</f7-nav-title>
@@ -896,7 +896,7 @@
         <!-- Images -->
         <div class="section-head">Images</div>
         <label class="upload-zone" @dragover.prevent @drop.prevent="onImgDrop">
-          <input type="file" accept="image/*" multiple style="display:none" @change="onImgsSelected" />
+          <input type="file" accept="image/*,.heic,.heif" multiple style="display:none" @change="onImgsSelected" />
           <i class="bi bi-cloud-arrow-up upload-zone-icon"></i>
           <div class="upload-zone-text">Tap to add photos</div>
           <div class="upload-zone-hint">JPEG, PNG, WEBP, HEIC</div>
@@ -1261,29 +1261,36 @@
         </div>
         <template v-else>
           <div
-            v-for="msg in messages"
-            :key="msg.id"
-            :class="['chat-msg-wrap', msg.sender_id === user.id ? 'chat-mine' : 'chat-theirs']"
+            v-for="row in groupedMessages"
+            :key="row._type === 'group' ? 'g-' + row.group_id : row.id"
+            :class="['chat-msg-wrap', row.sender_id === user.id ? 'chat-mine' : 'chat-theirs']"
           >
-            <div v-if="msg.sender_id !== user.id" class="chat-sender-name">{{ msg.sender_username }}</div>
-            <div v-if="msg.body" class="chat-bubble">{{ msg.body }}</div>
+            <div v-if="row.sender_id !== user.id" class="chat-sender-name">{{ row.sender_username }}</div>
+            <div v-if="row.body" class="chat-bubble">{{ row.body }}</div>
 
-            <!-- Image -->
-            <div v-if="msg.image_url" class="chat-img-msg" @click="openQuoteLink(msg.image_url)">
-              <img :src="imgUrl(msg.image_url)" loading="lazy" />
+            <!-- Multi-image grid -->
+            <div v-if="row._type === 'group'" :class="['chat-img-grid', gridColClass(row.images.length)]">
+              <div v-for="(url, idx) in row.images" :key="idx" class="chat-img-grid-cell" @click="openChatImg(row.images, idx)">
+                <img v-if="displayUrl(url)" :src="displayUrl(url)" loading="lazy" />
+              </div>
+            </div>
+
+            <!-- Single image -->
+            <div v-else-if="row.image_url" class="chat-img-msg" @click="openChatImg(row.image_url)">
+              <img v-if="displayUrl(row.image_url)" :src="displayUrl(row.image_url)" loading="lazy" />
             </div>
 
             <!-- Quote card -->
-            <div v-if="msg.quote" class="chat-quote-card" @click.stop="openQuoteLink(msg.quote.public_url)">
+            <div v-if="row.quote" class="chat-quote-card" @click.stop="openQuoteLink(row.quote.public_url)">
               <div class="cqc-body">
                 <div class="cqc-row">
-                  <span class="cqc-num">{{ msg.quote.quote_number }}</span>
-                  <span :class="['st-badge', 'st-' + msg.quote.status]" style="font-size:.6rem">
-                    {{ msg.quote.status.replace('_', ' ') }}
+                  <span class="cqc-num">{{ row.quote.quote_number }}</span>
+                  <span :class="['st-badge', 'st-' + row.quote.status]" style="font-size:.6rem">
+                    {{ row.quote.status.replace('_', ' ') }}
                   </span>
                 </div>
-                <div class="cqc-customer">{{ msg.quote.customer_name }}</div>
-                <div class="cqc-total">R {{ fmt(msg.quote.total) }}</div>
+                <div class="cqc-customer">{{ row.quote.customer_name }}</div>
+                <div class="cqc-total">R {{ fmt(row.quote.total) }}</div>
               </div>
               <div class="cqc-view">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1294,7 +1301,7 @@
               </div>
             </div>
 
-            <div class="chat-time">{{ fmtMsgTime(msg.created_at) }}</div>
+            <div class="chat-time">{{ fmtMsgTime(row.created_at) }}</div>
           </div>
         </template>
         <!-- anchor for scroll-to-bottom -->
@@ -1317,16 +1324,20 @@
             <i class="bi bi-x-lg"></i>
           </button>
         </div>
-        <!-- Image preview pill -->
-        <div v-if="msgImagePreview" class="chat-img-preview">
-          <img :src="msgImagePreview" class="chat-img-thumb" />
-          <button class="chat-attach-remove" @click="removeChatImage">
-            <i class="bi bi-x-lg"></i>
-          </button>
+        <!-- Image preview strip -->
+        <div v-if="msgImages.length" class="chat-img-preview">
+          <div v-for="(img, idx) in msgImages" :key="idx" class="chat-img-thumb-wrap">
+            <img :src="img.preview" class="chat-img-thumb" />
+            <button class="chat-img-thumb-remove" @click="removeChatImage(idx)">
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
         </div>
-        <div class="chat-input-row">
-          <!-- Hidden file input -->
-          <input type="file" accept="image/*" style="display:none" id="chat-img-input" @change="onChatImagePicked" />
+        <!-- Hidden file input -->
+        <input type="file" accept="image/*,.heic,.heif" multiple style="display:none" id="chat-img-input" @change="onChatImagePicked" />
+
+        <!-- Action buttons row -->
+        <div class="chat-actions-row">
           <button class="chat-icon-btn" @click="openQuotePicker" title="Attach existing quote">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
@@ -1346,18 +1357,22 @@
               <polyline points="21 15 16 10 5 21"/>
             </svg>
           </label>
-          <input
+        </div>
+
+        <!-- Text + send row -->
+        <div class="chat-input-row">
+          <textarea
             class="chat-input"
-            type="text"
             placeholder="Message…"
+            rows="1"
             :value="msgInput"
-            @input="msgInput = $event.target.value"
-            @keyup.enter="sendMessage"
+            @input="msgInput = $event.target.value; $event.target.style.height = 'auto'; $event.target.style.height = $event.target.scrollHeight + 'px'"
+            @keyup.enter.exact.prevent="sendMessage"
           />
           <button
             class="chat-send-btn"
             @click="sendMessage"
-            :disabled="msgSending || (!msgInput.trim() && !attachedQuote && !msgImage)"
+            :disabled="msgSending || (!msgInput.trim() && !attachedQuote && !msgImages.length)"
           >
             <f7-preloader v-if="msgSending" :size="16" color="white"></f7-preloader>
             <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -1411,6 +1426,33 @@
 
   </template>
 
+  <!-- ── CHAT IMAGE LIGHTBOX ─────────────────────────────────────────── -->
+  <div v-if="chatImgOpen" class="lightbox" @click.self="closeChatImg">
+    <button class="lb-close" @click="closeChatImg">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+
+    <button v-if="chatImgIndex > 0" class="lb-nav lb-prev" @click="chatImgIndex--">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+
+    <img class="lb-img" :src="chatImgGallery[chatImgIndex]" :key="chatImgIndex" />
+
+    <button v-if="chatImgIndex < chatImgGallery.length - 1" class="lb-nav lb-next" @click="chatImgIndex++">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </button>
+
+    <div v-if="chatImgGallery.length > 1" class="lb-counter">
+      {{ chatImgIndex + 1 }} / {{ chatImgGallery.length }}
+    </div>
+  </div>
+
   <!-- ── IMAGE LIGHTBOX ──────────────────────────────────────────────── -->
   <div v-if="previewOpen" class="lightbox" @click.self="closePreview">
     <button class="lb-close" @click="closePreview">
@@ -1445,6 +1487,7 @@
 <script>
 import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue';
 import Push from '../js/push.js';
+import heic2any from 'heic2any';
 
 const API_BASE = (window.cordova || window.location.protocol === 'file:')
   ? 'http://bulesiadmin.co.za/api'
@@ -1604,8 +1647,32 @@ export default {
     const attachedQuote     = ref(null);
     const quotePickerOpen   = ref(false);
     const quotePickerSearch = ref('');
-    const msgImage          = ref(null);
-    const msgImagePreview   = ref(null);
+    const msgImages = ref([]);   // [{ file, preview }]
+
+    // Group consecutive messages sharing the same group_id into one rendered row
+    const groupedMessages = computed(() => {
+      const rows = [];
+      let i = 0;
+      while (i < messages.value.length) {
+        const msg = messages.value[i];
+        if (msg.group_id) {
+          const group = [msg];
+          let j = i + 1;
+          while (j < messages.value.length && messages.value[j].group_id === msg.group_id) {
+            group.push(messages.value[j]);
+            j++;
+          }
+          rows.push({ _type: 'group', group_id: msg.group_id, sender_id: msg.sender_id,
+                      sender_username: msg.sender_username, created_at: msg.created_at,
+                      body: msg.body, quote: msg.quote, images: group.map(m => m.image_url).filter(Boolean) });
+          i = j;
+        } else {
+          rows.push({ _type: 'single', ...msg });
+          i++;
+        }
+      }
+      return rows;
+    });
     let   convPollTimer     = null;
     let   msgPollTimer      = null;
     let   bgUnreadTimer     = null;
@@ -1647,6 +1714,19 @@ export default {
     // ── Image preview ─────────────────────────────────────────────────────
     const previewOpen  = ref(false);
     const previewIndex = ref(0);
+
+    const chatImgOpen    = ref(false);
+    const chatImgSrc     = ref('');
+    const chatImgGallery = ref([]);
+    const chatImgIndex   = ref(0);
+    const openChatImg = (urlOrUrls, index = 0) => {
+      const urls = Array.isArray(urlOrUrls) ? urlOrUrls : [urlOrUrls];
+      chatImgGallery.value = urls.map(u => (isHeicUrl(u) && heicBlobCache[u]) ? heicBlobCache[u] : imgUrl(u));
+      chatImgIndex.value = index;
+      chatImgSrc.value = chatImgGallery.value[index];
+      chatImgOpen.value = true;
+    };
+    const closeChatImg = () => { chatImgOpen.value = false; chatImgGallery.value = []; };
 
     // ── Image upload (create / edit form) ────────────────────────────────
     // Each entry: { file, url, existing, index }
@@ -1726,8 +1806,30 @@ export default {
     // ── Helpers ───────────────────────────────────────────────────────────
     const imgUrl = (url) => {
       if (!url) return null;
-      if (window.cordova || window.location.protocol === 'file:') return url;
-      try { return new URL(url).pathname; } catch { return url; }
+      if (url.startsWith('http')) return url;
+      return API_BASE.replace(/\/api$/, '') + url;
+    };
+
+    const heicBlobCache = reactive({});
+    const _heicPending  = {};   // guard against duplicate in-flight conversions
+
+    const isHeicUrl = (url) => url && (/\.heic$/i.test(url) || /\.heif$/i.test(url));
+
+    const displayUrl = (url) => {
+      if (!url) return null;
+      const resolved = imgUrl(url);
+      if (!isHeicUrl(url)) return resolved;
+      if (heicBlobCache[url]) return heicBlobCache[url];
+      if (!_heicPending[url]) {
+        _heicPending[url] = true;
+        fetch(resolved)
+          .then(r => r.blob())
+          .then(blob => heic2any({ blob, toType: 'image/jpeg', quality: 0.85 }))
+          .then(jpeg => { heicBlobCache[url] = URL.createObjectURL(Array.isArray(jpeg) ? jpeg[0] : jpeg); })
+          .catch(() => { heicBlobCache[url] = resolved; })
+          .finally(() => { delete _heicPending[url]; });
+      }
+      return null;   // template re-renders once heicBlobCache[url] is set
     };
 
     const lineRaw   = i => Math.round(Math.max(0, i.quantity) * Math.max(0, i.unit_price) * 100) / 100;
@@ -2168,6 +2270,13 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       return `${t[0]}:${t[1]}`;
     };
 
+    const gridColClass = (n) => {
+      if (n === 1) return 'chat-img-grid-1';
+      if (n === 2) return 'chat-img-grid-2';
+      if (n === 4) return 'chat-img-grid-4';
+      return 'chat-img-grid-3';
+    };
+
     const scrollChatToBottom = () => {
       nextTick(() => {
         const anchor = document.querySelector('.chat-bottom-anchor');
@@ -2202,8 +2311,8 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
         try {
           const data  = await apiFetch(`/conversations/${convId}/messages?limit=50`);
           const msgs  = data.data ?? data;
-          const lastId = messages.value.at(-1)?.id || 0;
-          const fresh  = msgs.filter(m => m.id > lastId);
+          const known = new Set(messages.value.map(m => m.id));
+          const fresh = msgs.filter(m => !known.has(m.id));
           if (fresh.length) {
             messages.value = [...messages.value, ...fresh];
             scrollChatToBottom();
@@ -2264,8 +2373,8 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       msgError.value      = '';
       msgInput.value      = '';
       attachedQuote.value = null;
-      msgImage.value      = null;
-      msgImagePreview.value = null;
+      msgImages.value.forEach(({ preview }) => URL.revokeObjectURL(preview));
+      msgImages.value = [];
       view.value = 'chat';
       await fetchMessages(conv.id);
     };
@@ -2277,13 +2386,17 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
 
     const sendMessage = async () => {
       const body = msgInput.value.trim();
-      if ((!body && !attachedQuote.value && !msgImage.value) || msgSending.value) return;
+      if ((!body && !attachedQuote.value && !msgImages.value.length) || msgSending.value) return;
       msgSending.value = true;
       try {
         let data;
-        if (msgImage.value) {
+        if (msgImages.value.length) {
           const fd = new FormData();
-          fd.append('image', msgImage.value);
+          await Promise.all(msgImages.value.map(async ({ file }) => {
+            const buf  = await file.arrayBuffer();
+            const blob = new Blob([buf], { type: file.type });
+            fd.append('images[]', blob, file.name);
+          }));
           if (body)                fd.append('body',     body);
           if (attachedQuote.value) fd.append('quote_id', attachedQuote.value.id);
           data = await apiUpload(`/conversations/${selectedConv.value.id}/messages`, fd);
@@ -2295,20 +2408,24 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
             body: JSON.stringify(payload),
           });
         }
-        const msg = data.data ?? data;
-        messages.value.push(msg);
+        const created = Array.isArray(data.data) ? data.data : [data.data ?? data];
+        const known   = new Set(messages.value.map(m => m.id));
+        created.filter(m => !known.has(m.id)).forEach(m => messages.value.push(m));
         msgInput.value      = '';
         attachedQuote.value = null;
-        if (msgImagePreview.value) URL.revokeObjectURL(msgImagePreview.value);
-        msgImage.value        = null;
-        msgImagePreview.value = null;
+        msgImages.value.forEach(({ preview }) => URL.revokeObjectURL(preview));
+        msgImages.value = [];
         scrollChatToBottom();
-        const idx = conversations.value.findIndex(c => c.id === selectedConv.value.id);
+        const last = created[created.length - 1];
+        const idx  = conversations.value.findIndex(c => c.id === selectedConv.value.id);
         if (idx !== -1) {
+          const count = created.length;
           conversations.value[idx].last_message = {
-            body: msg.body || '📷 Photo', sender_username: msg.sender_username, created_at: msg.created_at,
+            body: last.body || (count > 1 ? `📷 ${count} Photos` : '📷 Photo'),
+            sender_username: last.sender_username,
+            created_at: last.created_at,
           };
-          conversations.value[idx].updated_at = msg.created_at;
+          conversations.value[idx].updated_at = last.created_at;
         }
       } catch (err) {
         if (err.response?.status === 401) { logout(); return; }
@@ -2317,19 +2434,29 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       }
     };
 
-    const onChatImagePicked = (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      if (msgImagePreview.value) URL.revokeObjectURL(msgImagePreview.value);
-      msgImage.value        = file;
-      msgImagePreview.value = URL.createObjectURL(file);
+    const onChatImagePicked = async (e) => {
+      const files = Array.from(e.target.files || []);
       e.target.value = '';
+      for (const file of files) {
+        const isHeic = file.type === 'image/heic' || file.type === 'image/heif' ||
+                       /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name);
+        if (isHeic) {
+          try {
+            const jpeg    = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.85 });
+            const preview = URL.createObjectURL(Array.isArray(jpeg) ? jpeg[0] : jpeg);
+            msgImages.value.push({ file, preview });
+          } catch {
+            msgImages.value.push({ file, preview: URL.createObjectURL(file) });
+          }
+        } else {
+          msgImages.value.push({ file, preview: URL.createObjectURL(file) });
+        }
+      }
     };
 
-    const removeChatImage = () => {
-      if (msgImagePreview.value) URL.revokeObjectURL(msgImagePreview.value);
-      msgImage.value        = null;
-      msgImagePreview.value = null;
+    const removeChatImage = (idx) => {
+      URL.revokeObjectURL(msgImages.value[idx].preview);
+      msgImages.value.splice(idx, 1);
     };
 
     const attachQuote = (q) => {
@@ -2484,7 +2611,11 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
         const newImages = uploadedImages.value.filter(img => !img.existing);
         if (newImages.length) {
           const fd = new FormData();
-          newImages.forEach(img => fd.append('images[]', img.file));
+          await Promise.all(newImages.map(async img => {
+            const buf  = await img.file.arrayBuffer();
+            const blob = new Blob([buf], { type: img.file.type });
+            fd.append('images[]', blob, img.file.name);
+          }));
           await apiUpload(`/quotation/${editingId.value}/images`, fd).catch(() => {});
         }
 
@@ -2705,7 +2836,11 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
         const quoteId = data.quote?.id ?? data.id;
         if (uploadedImages.value.length && quoteId) {
           const fd = new FormData();
-          uploadedImages.value.forEach(img => fd.append('images[]', img.file));
+          await Promise.all(uploadedImages.value.map(async img => {
+            const buf  = await img.file.arrayBuffer();
+            const blob = new Blob([buf], { type: img.file.type });
+            fd.append('images[]', blob, img.file.name);
+          }));
           await apiUpload(`/quotation/${quoteId}/images`, fd).catch(() => {});
         }
 
@@ -2828,7 +2963,27 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
     };
 
     // ── Restore session on mount ──────────────────────────────────────────
+    const handleBackButton = (e) => {
+      if (!user.value) return; // on login/register — let Cordova handle (exits app)
+
+      e.preventDefault();
+
+      // Close any open overlay first, in priority order
+      if (chatImgOpen.value)       { closeChatImg();                  return; }
+      if (previewOpen.value)        { closePreview();                  return; }
+      if (quotePickerOpen.value)    { quotePickerOpen.value = false;   return; }
+      if (userPickerOpen.value)     { userPickerOpen.value = false;    return; }
+      if (menuOpen.value)           { menuOpen.value = false;          return; }
+
+      // Nothing open — go back in view hierarchy
+      if (view.value !== homeView.value) {
+        goBack();
+      }
+    };
+
     onMounted(() => {
+      document.addEventListener('backbutton', handleBackButton, false);
+
       const token  = localStorage.getItem('qt_token');
       const stored = localStorage.getItem('qt_user');
       if (token && stored) {
@@ -2858,18 +3013,19 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       filteredQuotations, fetchQuotations, setListFilter, goToList, goToCreate,
       selectedQuote, detailLoading, detailError, shareCopied, openQuotation, shareQuotation, openPublicView,
       conversations, convLoading, convError, selectedConv, totalUnread,
-      messages, msgLoading, msgError, msgInput, msgSending, msgHasMore, msgLoadingMore,
+      messages, groupedMessages, msgLoading, msgError, msgInput, msgSending, msgHasMore, msgLoadingMore,
       attachedQuote, quotePickerOpen, quotePickerSearch, filteredPickerQuotes,
       fetchConversations, openConversation, loadMoreMessages, sendMessage,
       attachQuote, openQuotePicker, openQuoteLink, goToConversations, startConversation,
-      msgImage, msgImagePreview, onChatImagePicked, removeChatImage,
+      msgImages, onChatImagePicked, removeChatImage,
       chatCreateMode, goToCreateFromChat,
       userPickerOpen, userPickerSearch, userPickerLoading, filteredPickerUsers, openUserPicker,
       fmtConvTime, fmtMsgTime,
       previewOpen, previewIndex, openPreview, closePreview,
+      chatImgOpen, chatImgSrc, chatImgGallery, chatImgIndex, openChatImg, closeChatImg,
       uploadedImages, removedImageSlots, onImgsSelected, onImgDrop, removeUploadedImage,
       isEditing, editStatus, goToEdit, cancelEdit, submitEdit, goBack,
-      lineTotal, recalc, fmt, imgUrl,
+      lineTotal, recalc, fmt, imgUrl, displayUrl, gridColClass,
       users, usersLoading, usersError, userSearch, filteredUsers,
       selectedUser, isAdmin, homeView, fetchUsers, openUser, goToUsers,
       groups, groupsLoading, showUserPw, userCreateLoading, userCreateError, userForm,
