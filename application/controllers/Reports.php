@@ -95,6 +95,43 @@ class Reports extends MY_Controller {
         $this->load->view('layouts/footer');
     }
 
+    public function chats($period = 'this_month')
+    {
+        if (!array_key_exists($period, $this->periods)) {
+            $period = 'this_month';
+        }
+        list($start, $end) = $this->_date_range($period);
+        $this->_render_chats($period, $start, $end);
+    }
+
+    public function chats_custom($start = NULL, $end = NULL)
+    {
+        if (!$start || !$end || !strtotime($start) || !strtotime($end)) {
+            redirect('reports/chats');
+        }
+        if ($start > $end) list($start, $end) = [$end, $start];
+        $this->_render_chats('custom', $start, $end);
+    }
+
+    private function _render_chats($period, $start, $end)
+    {
+        $data = [
+            'title'         => 'Chat Report',
+            'user'          => $this->current_user,
+            'period'        => $period,
+            'periods'       => $this->periods,
+            'start'         => $start,
+            'end'           => $end,
+            'kpis'          => $this->Report_model->get_chat_kpis($start, $end),
+            'by_user'       => $this->Report_model->get_chat_by_user($start, $end),
+            'recent'        => $this->Report_model->get_chat_recent($start, $end),
+        ];
+
+        $this->load->view('layouts/header', $data);
+        $this->load->view('reports/chats', $data);
+        $this->load->view('layouts/footer');
+    }
+
     private function _render($period, $start, $end)
     {
         $year    = (int)date('Y', strtotime($start));

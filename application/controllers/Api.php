@@ -1055,12 +1055,27 @@ class Api extends CI_Controller {
             return $this->_json(['error' => 'Method Not Allowed'], 405);
         }
 
-        $body     = $this->_body();
-        $text     = $this->_str($body['body'] ?? '');
-        $quote_id = isset($body['quote_id']) ? (int)$body['quote_id'] : NULL;
+        // Support both multipart (file upload) and JSON bodies
+        $is_multipart = !empty($_FILES['image']['name']);
+        if ($is_multipart) {
+            $text     = $this->_str($_POST['body']     ?? '');
+            $quote_id = isset($_POST['quote_id']) ? (int)$_POST['quote_id'] : NULL;
+        } else {
+            $body     = $this->_body();
+            $text     = $this->_str($body['body']     ?? '');
+            $quote_id = isset($body['quote_id']) ? (int)$body['quote_id'] : NULL;
+        }
 
-        if (!$text) {
-            return $this->_json(['error' => 'body is required'], 422);
+        $image_path = NULL;
+        if ($is_multipart) {
+            $image_path = $this->_upload_chat_image((int)$id);
+            if ($image_path === FALSE) {
+                return $this->_json(['error' => 'Invalid image. Allowed: jpg, jpeg, png, webp, gif — max 5 MB.'], 422);
+            }
+        }
+
+        if (!$text && !$image_path) {
+            return $this->_json(['error' => 'body or image is required'], 422);
         }
 
         if ($quote_id) {
@@ -1070,13 +1085,13 @@ class Api extends CI_Controller {
             }
         }
 
-        $msg_id = $this->Chat_model->send_message((int)$id, (int)$user->id, $text, $quote_id);
+        $msg_id = $this->Chat_model->send_message((int)$id, (int)$user->id, $text, $quote_id, $image_path);
         $msg    = $this->Chat_model->get_message($msg_id);
 
         // Push notification to all other participants who have a device token
         $tokens = $this->Chat_model->get_recipient_tokens((int)$id, (int)$user->id);
         if ($tokens) {
-            $preview = mb_strlen($text) > 80 ? mb_substr($text, 0, 77) . '…' : $text;
+            $preview = $image_path ? '📷 Photo' : ($text ? (mb_strlen($text) > 80 ? mb_substr($text, 0, 77) . '…' : $text) : '📷 Photo');
             send_push(
                 $tokens,
                 $user->username,
@@ -1118,6 +1133,35 @@ class Api extends CI_Controller {
         $this->Chat_model->mark_read((int)$id, (int)$user->id);
 
         return $this->_json(['success' => TRUE]);
+    }
+
+    // ── Upload a chat image ───────────────────────────────────────────
+    private function _upload_chat_image($conversation_id)
+    {
+        $file = $_FILES['image'] ?? [];
+        if (empty($file['name']) || $file['error'] !== UPLOAD_ERR_OK) return NULL;
+        if ($file['size'] > 5 * 1024 * 1024) return FALSE;
+
+        $allowed_exts  = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+        $allowed_mimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowed_exts)) return FALSE;
+
+        if (function_exists('mime_content_type')) {
+            $mime = mime_content_type($file['tmp_name']);
+            if (!in_array(strtolower($mime), $allowed_mimes)) return FALSE;
+        }
+
+        $upload_dir = FCPATH . 'uploads/chat/';
+        if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, TRUE);
+        @chmod($upload_dir, 0777);
+
+        $fname = 'chat_' . $conversation_id . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        if (move_uploaded_file($file['tmp_name'], $upload_dir . $fname)) {
+            return 'uploads/chat/' . $fname;
+        }
+        return FALSE;
     }
 
     // ── Format a conversation row for API output ──────────────────────

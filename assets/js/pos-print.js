@@ -5,7 +5,7 @@
  *   https://qz.io/download/
  *
  * Usage:
- *   printReceipt({ quoteNumber, customer, notes, subtotal, vatAmount, total, createdAt }, items)
+ *   printReceipt({ quoteNumber, customer, notes, subtotal, vatAmount, total, createdAt, companyName, companyLogo }, items)
  *   items: [{ name, unit, quantity, unit_price, line_total }, …]
  */
 
@@ -43,10 +43,12 @@ const PosPrint = (() => {
         const date = dt.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' });
         const time = dt.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
 
+        const companyName = (order.companyName || 'BULESI').toUpperCase();
+
         let d = '';
         d += CMD.INIT;
         d += CMD.ALIGN_CENTER;
-        d += CMD.BOLD_ON + CMD.DOUBLE_ON + 'BULESI' + LF + CMD.DOUBLE_OFF + CMD.BOLD_OFF;
+        d += CMD.BOLD_ON + CMD.DOUBLE_ON + companyName + LF + CMD.DOUBLE_OFF + CMD.BOLD_OFF;
         d += 'Point of Sale' + LF;
         d += CMD.ALIGN_LEFT;
         d += DIVIDER;
@@ -79,6 +81,13 @@ const PosPrint = (() => {
         d += DIVIDER;
         d += CMD.ALIGN_CENTER;
         d += 'Thank you for your purchase!' + LF;
+        d += CMD.ALIGN_LEFT;
+        d += LF;
+        d += 'Customer Signature:' + LF;
+        d += LF;
+        d += '_'.repeat(38) + LF;
+        d += LF;
+        d += 'Date: ____________________________' + LF;
         d += CMD.FEED3;
         d += CMD.CUT;
 
@@ -100,6 +109,13 @@ const PosPrint = (() => {
             </tr>`;
         }).join('');
 
+        const logoHtml = order.companyLogo
+            ? `<img src="${order.companyLogo}" alt="" style="max-height:60px;max-width:120px;object-fit:contain;display:block;margin:0 auto 3px">`
+            : '';
+        const nameHtml = order.companyName
+            ? `<div class="c b lg">${order.companyName}</div>`
+            : '<div class="c b lg">BULESI</div>';
+
         const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>Receipt ${order.quoteNumber}</title>
 <style>
@@ -115,7 +131,7 @@ const PosPrint = (() => {
   .tot td { padding:1px 0; }
   .grand td { font-weight:bold; font-size:13px; border-top:1px solid #000; padding-top:3px; }
 </style></head><body>
-  <div class="c b lg">BULESI</div>
+  ${logoHtml}${nameHtml}
   <div class="c" style="font-size:10px">Point of Sale</div><hr>
   <div>No: <b>${order.quoteNumber}</b></div>
   <div>Date: ${date} ${time}</div>
@@ -131,6 +147,11 @@ const PosPrint = (() => {
     <tr class="grand"><td>TOTAL</td><td>${fmt(order.total)}</td></tr>
   </table><hr>
   <div class="c" style="font-size:10px;margin-top:4px">Thank you for your purchase!</div>
+  <div style="margin-top:18px">
+    <div style="font-size:10px;font-weight:bold;margin-bottom:2px">Customer Signature</div>
+    <div style="border-top:1px solid #000;margin-top:28px;padding-top:3px;font-size:9px;color:#555">Signature</div>
+    <div style="border-top:1px solid #000;margin-top:18px;padding-top:3px;font-size:9px;color:#555">Date</div>
+  </div>
 </body></html>`;
 
         const win = window.open('', '_blank', 'width=320,height=600,toolbar=0,menubar=0,scrollbars=1');
@@ -142,18 +163,21 @@ const PosPrint = (() => {
         setTimeout(() => { win.print(); win.close(); }, 400);
     }
 
+    // null = untested, true = confirmed working, false = confirmed unavailable
+    let qzAvailable = null;
+
     // ── QZ Tray connection + print ─────────────────────────────────────
     async function qzPrint(order, items) {
-        // Allow unsigned connections for local development
         qz.security.setCertificatePromise((resolve) => resolve());
         qz.security.setSignatureAlgorithm('SHA512');
         qz.security.setSignaturePromise((toSign) => (resolve) => resolve());
 
         if (!qz.websocket.isActive()) {
-            await qz.websocket.connect();
+            // retries:0 + delay:0 makes it fail immediately instead of
+            // hammering the WebSocket and flooding the console
+            await qz.websocket.connect({ retries: 0, delay: 0 });
         }
 
-        // Find first EPSON printer; falls back to default if none found
         let printer;
         try {
             printer = await qz.printers.find('EPSON');
@@ -163,19 +187,19 @@ const PosPrint = (() => {
         }
 
         const config = qz.configs.create(printer, { encoding: 'ISO-8859-1' });
-        const escPos  = buildEscPos(order, items);
-
-        await qz.print(config, [{ type: 'raw', format: 'plain', data: escPos }]);
+        await qz.print(config, [{ type: 'raw', format: 'plain', data: buildEscPos(order, items) }]);
     }
 
     // ── Public API ─────────────────────────────────────────────────────
     async function printReceipt(order, items) {
-        if (typeof qz !== 'undefined') {
+        if (typeof qz !== 'undefined' && qzAvailable !== false) {
             try {
                 await qzPrint(order, items);
+                qzAvailable = true;
                 return;
             } catch (err) {
-                console.warn('QZ Tray print failed, falling back to browser print:', err);
+                qzAvailable = false;
+                console.info('QZ Tray not available — using browser print.');
             }
         }
         browserPrint(order, items);

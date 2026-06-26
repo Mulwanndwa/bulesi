@@ -57,6 +57,10 @@ $route['reports/sales/custom/(:any)/(:any)'] = 'Reports/sales_custom/$1/$2';
 $route['reports/sales/(:any)']               = 'Reports/sales/$1';
 $route['reports/sales']                      = 'Reports/sales';
 
+$route['reports/chats/custom/(:any)/(:any)'] = 'Reports/chats_custom/$1/$2';
+$route['reports/chats/(:any)']               = 'Reports/chats/$1';
+$route['reports/chats']                      = 'Reports/chats';
+
 $route['q/(:any)/sign'] = 'Public_quote/sign/$1';
 $route['q/(:any)']      = 'Public_quote/view/$1';
 

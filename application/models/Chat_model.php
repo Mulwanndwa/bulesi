@@ -98,7 +98,7 @@ class Chat_model extends CI_Model {
     public function get_messages($conversation_id, $limit = 50, $before_id = NULL)
     {
         $sql = "
-            SELECT m.id, m.conversation_id, m.sender_id, m.body, m.quote_id, m.created_at,
+            SELECT m.id, m.conversation_id, m.sender_id, m.body, m.quote_id, m.image_path, m.created_at,
                    u.username AS sender_username, u.first_name AS sender_first_name, u.last_name AS sender_last_name,
                    q.quote_number, q.customer_name, q.total, q.status AS quote_status,
                    q.public_token AS quote_token
@@ -122,13 +122,14 @@ class Chat_model extends CI_Model {
         return array_reverse($rows);
     }
 
-    public function send_message($conversation_id, $sender_id, $body, $quote_id = NULL)
+    public function send_message($conversation_id, $sender_id, $body, $quote_id = NULL, $image_path = NULL)
     {
         $this->db->insert('messages', [
             'conversation_id' => (int)$conversation_id,
             'sender_id'       => (int)$sender_id,
             'body'            => $body,
-            'quote_id'        => $quote_id ? (int)$quote_id : NULL,
+            'quote_id'        => $quote_id  ? (int)$quote_id : NULL,
+            'image_path'      => $image_path ?: NULL,
         ]);
         $msg_id = $this->db->insert_id();
 
@@ -142,7 +143,7 @@ class Chat_model extends CI_Model {
     public function get_message($id)
     {
         return $this->db->query("
-            SELECT m.id, m.conversation_id, m.sender_id, m.body, m.quote_id, m.created_at,
+            SELECT m.id, m.conversation_id, m.sender_id, m.body, m.quote_id, m.image_path, m.created_at,
                    u.username AS sender_username, u.first_name AS sender_first_name, u.last_name AS sender_last_name,
                    q.quote_number, q.customer_name, q.total, q.status AS quote_status,
                    q.public_token AS quote_token
@@ -245,6 +246,7 @@ class Chat_model extends CI_Model {
             'sender_last_name'    => $m->sender_last_name   ?: NULL,
             'sender_full_name'    => $senderFull,
             'body'                => $m->body,
+            'image_url'           => !empty($m->image_path) ? base_url($m->image_path) : NULL,
             'created_at'          => $m->created_at,
             'quote'               => NULL,
         ];

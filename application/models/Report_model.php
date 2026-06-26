@@ -220,6 +220,56 @@ class Report_model extends CI_Model {
         ", [$start, $end])->result();
     }
 
+    public function get_chat_kpis($start, $end)
+    {
+        return $this->db->query("
+            SELECT
+                COUNT(DISTINCT m.conversation_id)          AS total_conversations,
+                COUNT(m.id)                                AS total_messages,
+                COUNT(DISTINCT m.sender_id)                AS active_users,
+                COUNT(CASE WHEN m.image_path IS NOT NULL THEN 1 END) AS image_messages,
+                COUNT(CASE WHEN m.quote_id IS NOT NULL THEN 1 END)   AS quote_messages
+            FROM messages m
+            WHERE m.created_at BETWEEN ? AND ?
+        ", [$start . ' 00:00:00', $end . ' 23:59:59'])->row();
+    }
+
+    public function get_chat_by_user($start, $end)
+    {
+        return $this->db->query("
+            SELECT
+                u.username,
+                TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS full_name,
+                COUNT(m.id)                AS message_count,
+                COUNT(DISTINCT m.conversation_id) AS conversation_count,
+                MAX(m.created_at)          AS last_active
+            FROM messages m
+            JOIN auth_users u ON u.id = m.sender_id
+            WHERE m.created_at BETWEEN ? AND ?
+            GROUP BY m.sender_id, u.username, u.first_name, u.last_name
+            ORDER BY message_count DESC
+            LIMIT 20
+        ", [$start . ' 00:00:00', $end . ' 23:59:59'])->result();
+    }
+
+    public function get_chat_recent($start, $end, $limit = 50)
+    {
+        return $this->db->query("
+            SELECT
+                m.id, m.body, m.image_path, m.created_at,
+                u.username AS sender_username,
+                TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS sender_full_name,
+                m.conversation_id,
+                q.quote_number
+            FROM messages m
+            JOIN auth_users u ON u.id = m.sender_id
+            LEFT JOIN quotations q ON q.id = m.quote_id
+            WHERE m.created_at BETWEEN ? AND ?
+            ORDER BY m.created_at DESC
+            LIMIT ?
+        ", [$start . ' 00:00:00', $end . ' 23:59:59', (int)$limit])->result();
+    }
+
     public function get_status_flow($start, $end)
     {
         return $this->db->query("

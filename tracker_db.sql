@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Jun 22, 2026 at 03:06 PM
+-- Generation Time: Jun 26, 2026 at 08:50 AM
 -- Server version: 10.4.27-MariaDB
 -- PHP Version: 7.4.33
 
@@ -30,6 +30,8 @@ SET time_zone = "+00:00";
 CREATE TABLE `auth_users` (
   `id` int(10) UNSIGNED NOT NULL,
   `username` varchar(100) NOT NULL,
+  `first_name` varchar(75) DEFAULT NULL,
+  `last_name` varchar(75) DEFAULT NULL,
   `group_id` tinyint(3) UNSIGNED NOT NULL DEFAULT 1,
   `company_id` int(10) UNSIGNED DEFAULT NULL,
   `email` varchar(150) NOT NULL,
@@ -47,10 +49,11 @@ CREATE TABLE `auth_users` (
 -- Dumping data for table `auth_users`
 --
 
-INSERT INTO `auth_users` (`id`, `username`, `group_id`, `company_id`, `email`, `password`, `is_active`, `last_login`, `remember_token`, `api_token`, `push_token`, `created_at`, `updated_at`) VALUES
-(1, 'admin', 1, NULL, 'admin@mulwai.za', '$2y$10$STzCyR5RLF8mPAWm0o3M1Org2M96u4LauoanT768iVPgKxeCLhqf.', 1, '2026-06-12 17:20:12', NULL, '96e79602c36278b2799800c79276a48c933466713930194bd59cc1c3b42534f1', NULL, '2026-05-26 04:48:02', '2026-06-12 17:20:12'),
-(3, 'staff', 3, 1, 'ndivho.mulwanndwa@gmail.com', '$2y$10$xgnd9dtbkGkW5NBw5/9b8eH3nSlgLMzsSezanAr/jY7s6KMP2MCWK', 1, '2026-05-26 05:24:32', NULL, NULL, NULL, '2026-05-26 05:24:18', '2026-05-31 10:01:13'),
-(4, 'Cashier', 5, 5, 'cash@m.co.za', '$2y$10$I5xfcNgTB.W6X6e9SiiI6OmKsZ34u9OZRNAxom0etxY9FQospwaBa', 1, '2026-06-12 17:20:42', NULL, '2ce3743211e5b19e817812b366612cb73076e0abed618819323806ca393e4a32', NULL, '2026-05-31 08:52:16', '2026-06-12 17:20:42');
+INSERT INTO `auth_users` (`id`, `username`, `first_name`, `last_name`, `group_id`, `company_id`, `email`, `password`, `is_active`, `last_login`, `remember_token`, `api_token`, `push_token`, `created_at`, `updated_at`) VALUES
+(1, 'admin', 'Bulesi', 'P', 1, NULL, 'admin@mulwai.za', '$2y$10$STzCyR5RLF8mPAWm0o3M1Org2M96u4LauoanT768iVPgKxeCLhqf.', 1, '2026-06-26 08:25:23', NULL, '96e79602c36278b2799800c79276a48c933466713930194bd59cc1c3b42534f1', NULL, '2026-05-26 04:48:02', '2026-06-26 08:25:23'),
+(3, 'staff', 'Mpho', 'M', 3, 1, 'ndivho.mulwanndwa@gmail.com', '$2y$10$xgnd9dtbkGkW5NBw5/9b8eH3nSlgLMzsSezanAr/jY7s6KMP2MCWK', 1, '2026-05-26 05:24:32', NULL, NULL, NULL, '2026-05-26 05:24:18', '2026-06-22 15:29:00'),
+(4, 'Cashier', NULL, NULL, 5, 5, 'cash@m.co.za', '$2y$10$I5xfcNgTB.W6X6e9SiiI6OmKsZ34u9OZRNAxom0etxY9FQospwaBa', 1, '2026-06-12 17:20:42', NULL, '2ce3743211e5b19e817812b366612cb73076e0abed618819323806ca393e4a32', NULL, '2026-05-31 08:52:16', '2026-06-12 17:20:42'),
+(5, 'mulwanndwa.mpho@gmail.com', 'Mpho', 'Mulwanndwa', 2, 5, 'mulwanndwa.mpho@gmail.com', '$2y$10$6vbpnMN0r1IAczsn5O.lyeXOzV5dozgIW.jPJfVjiyW3YuoVORfSG', 1, NULL, NULL, '69ed7c82a56d3629f7f61de0329c90b480c24facbfe3f267d2125aff33ec0796', NULL, '2026-06-22 15:27:09', '2026-06-22 15:27:09');
 
 -- --------------------------------------------------------
 
@@ -96,7 +99,9 @@ CREATE TABLE `conversations` (
 
 INSERT INTO `conversations` (`id`, `created_at`, `updated_at`) VALUES
 (1, '2026-06-22 14:29:12', '2026-06-22 14:52:17'),
-(2, '2026-06-22 14:29:31', '2026-06-22 14:36:57');
+(2, '2026-06-22 14:29:31', '2026-06-22 14:36:57'),
+(3, '2026-06-22 15:29:45', '2026-06-22 15:29:52'),
+(4, '2026-06-22 15:30:11', '2026-06-26 08:38:01');
 
 -- --------------------------------------------------------
 
@@ -117,10 +122,14 @@ CREATE TABLE `conversation_participants` (
 --
 
 INSERT INTO `conversation_participants` (`id`, `conversation_id`, `user_id`, `last_read_at`, `joined_at`) VALUES
-(1, 1, 1, '2026-06-22 15:06:20', '2026-06-22 14:29:12'),
+(1, 1, 1, '2026-06-22 15:22:44', '2026-06-22 14:29:12'),
 (2, 1, 4, NULL, '2026-06-22 14:29:12'),
 (3, 2, 1, '2026-06-22 14:51:23', '2026-06-22 14:29:31'),
-(4, 2, 3, NULL, '2026-06-22 14:29:31');
+(4, 2, 3, NULL, '2026-06-22 14:29:31'),
+(5, 3, 5, '2026-06-22 15:56:23', '2026-06-22 15:29:45'),
+(6, 3, 1, NULL, '2026-06-22 15:29:45'),
+(7, 4, 5, '2026-06-26 08:47:10', '2026-06-22 15:30:11'),
+(8, 4, 3, NULL, '2026-06-22 15:30:11');
 
 -- --------------------------------------------------------
 
@@ -157,6 +166,7 @@ CREATE TABLE `messages` (
   `sender_id` int(10) UNSIGNED NOT NULL,
   `body` text NOT NULL,
   `quote_id` int(10) UNSIGNED DEFAULT NULL,
+  `image_path` varchar(255) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -164,11 +174,14 @@ CREATE TABLE `messages` (
 -- Dumping data for table `messages`
 --
 
-INSERT INTO `messages` (`id`, `conversation_id`, `sender_id`, `body`, `quote_id`, `created_at`) VALUES
-(1, 2, 1, 'testing', NULL, '2026-06-22 14:36:57'),
-(2, 1, 1, 'testing', NULL, '2026-06-22 14:37:17'),
-(3, 1, 1, 'see this', 9, '2026-06-22 14:40:45'),
-(4, 1, 1, 'QT-2026-0010', 10, '2026-06-22 14:52:17');
+INSERT INTO `messages` (`id`, `conversation_id`, `sender_id`, `body`, `quote_id`, `image_path`, `created_at`) VALUES
+(1, 2, 1, 'testing', NULL, NULL, '2026-06-22 14:36:57'),
+(2, 1, 1, 'testing', NULL, NULL, '2026-06-22 14:37:17'),
+(3, 1, 1, 'see this', 9, NULL, '2026-06-22 14:40:45'),
+(4, 1, 1, 'QT-2026-0010', 10, NULL, '2026-06-22 14:52:17'),
+(5, 3, 5, 'testing', NULL, NULL, '2026-06-22 15:29:52'),
+(6, 4, 5, 'test', NULL, NULL, '2026-06-22 15:30:15'),
+(7, 4, 5, 'hey see', NULL, 'uploads/chat/chat_4_1782455881_496c1ae6.png', '2026-06-26 08:38:01');
 
 -- --------------------------------------------------------
 
@@ -524,7 +537,7 @@ ALTER TABLE `user_groups`
 -- AUTO_INCREMENT for table `auth_users`
 --
 ALTER TABLE `auth_users`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `companies`
@@ -536,13 +549,13 @@ ALTER TABLE `companies`
 -- AUTO_INCREMENT for table `conversations`
 --
 ALTER TABLE `conversations`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `conversation_participants`
 --
 ALTER TABLE `conversation_participants`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `house_plans`
@@ -554,7 +567,7 @@ ALTER TABLE `house_plans`
 -- AUTO_INCREMENT for table `messages`
 --
 ALTER TABLE `messages`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `quotations`

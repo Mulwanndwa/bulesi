@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login &mdash; Demo QT</title>
+    <title>Login &mdash; Bulesi Trang</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <style>
         body {
@@ -27,10 +27,18 @@
             text-align: center;
             padding: 28px 24px 20px;
         }
+        .login-card .card-header img {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 2px 6px rgba(0,0,0,.4));
+        }
         .login-card .card-header h4 {
             margin: 0;
-            font-weight: 600;
+            font-weight: 700;
             letter-spacing: .5px;
+            font-size: 1.25rem;
         }
         .login-card .card-body {
             padding: 32px 32px 24px;
@@ -57,7 +65,8 @@
 
 <div class="card login-card">
     <div class="card-header">
-        <h4>Demo QT</h4>
+        <img src="<?= base_url('assets/img/logo.png') ?>" alt="Bulesi Trang Logo">
+        <h4>Bulesi Trang</h4>
         <small class="text-white-50">Sign in to your account</small>
     </div>
     <div class="card-body">

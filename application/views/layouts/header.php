@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= isset($title) ? htmlspecialchars($title) . ' — Demo QT' : 'Demo QT' ?></title>
+    <title><?= isset($title) ? htmlspecialchars($title) . ' — Bulesi Trang' : 'Bulesi Trang' ?></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
@@ -89,7 +89,9 @@
 <!-- Sidebar -->
 <div id="sidebar">
     <a href="<?= base_url('dashboard') ?>" class="sb-brand">
-        <i class="bi bi-hammer"></i> Bulesi
+        <img src="<?= base_url('assets/img/logo.png') ?>" alt=""
+             style="width:34px;height:34px;object-fit:contain;flex-shrink:0">
+        Bulesi Trang
     </a>
     <nav>
         <div class="sb-label">Overview</div>
@@ -118,6 +120,9 @@
         </a>
         <a href="<?= base_url('reports/sales') ?>" class="sb-link <?= ($this->uri->segment(1)==='reports' && $this->uri->segment(2)==='sales')?'active':'' ?>">
             <i class="bi bi-cash-coin"></i> Sales Report
+        </a>
+        <a href="<?= base_url('reports/chats') ?>" class="sb-link <?= ($this->uri->segment(1)==='reports' && $this->uri->segment(2)==='chats')?'active':'' ?>">
+            <i class="bi bi-chat-dots-fill"></i> Chat Report
         </a>
         <?php if (($user['group_name'] ?? '') === 'Admin'): ?>
         <div class="sb-label">System</div>

@@ -56,11 +56,23 @@ function send_push($tokens, $title, $body, array $data = [])
                     'body'  => $body,
                 ],
                 'android' => [
-                    'notification' => ['sound' => 'default'],
                     'priority'     => 'high',
+                    'notification' => [
+                        'sound'         => 'default',
+                        'channel_id'    => 'bulesi_messages',
+                        'notification_priority' => 'PRIORITY_HIGH',
+                        'visibility'    => 'PUBLIC',
+                        'default_sound' => TRUE,
+                        'default_vibrate_timings' => TRUE,
+                    ],
                 ],
                 'apns' => [
-                    'payload' => ['aps' => ['sound' => 'default']],
+                    'headers' => ['apns-priority' => '10'],
+                    'payload' => ['aps' => [
+                        'sound' => 'default',
+                        'badge' => 1,
+                        'content-available' => 1,
+                    ]],
                 ],
                 'data' => $string_data,
             ],
