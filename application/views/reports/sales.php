@@ -41,7 +41,7 @@ $u_revenues = json_encode(array_map(fn($u) => (float)$u->total_revenue, $by_user
     $avg = $kpis->total_sales > 0 ? $kpis->total_revenue / $kpis->total_sales : 0;
     $cards = [
         ['val' => (int)$kpis->total_sales,                              'lbl' => 'Total Sales',        'sub' => 'completed + invoiced',   'icon' => 'patch-check-fill',   'color' => '#198754'],
-        ['val' => 'R '.number_format($kpis->total_revenue, 2),          'lbl' => 'Total Revenue',       'sub' => 'incl. VAT',              'icon' => 'cash-stack',         'color' => '#0d6efd'],
+        ['val' => 'R '.number_format($kpis->total_revenue, 2),          'lbl' => 'Total Revenue',       'sub' => 'incl. VAT',              'icon' => 'cash-stack',         'color' => '#0d5c0d'],
         ['val' => 'R '.number_format($kpis->total_subtotal, 2),         'lbl' => 'Revenue excl. VAT',   'sub' => 'subtotal before VAT',    'icon' => 'receipt',            'color' => '#6f42c1'],
         ['val' => 'R '.number_format($kpis->total_vat, 2),              'lbl' => 'VAT Collected',       'sub' => '15% VAT component',      'icon' => 'percent',            'color' => '#fd7e14'],
         ['val' => 'R '.number_format($avg, 2),                          'lbl' => 'Avg Sale Value',      'sub' => 'revenue ÷ sales',        'icon' => 'graph-up',           'color' => '#20c997'],
@@ -148,7 +148,7 @@ $u_revenues = json_encode(array_map(fn($u) => (float)$u->total_revenue, $by_user
                                 <div class="fw-semibold"><?= htmlspecialchars($c->company_name) ?></div>
                                 <div class="mt-1">
                                     <div class="bg-light rounded" style="height:4px;overflow:hidden">
-                                        <div class="rounded" style="height:4px;width:<?= min(100, round($c->total_revenue / $max_company * 100)) ?>%;background:#0d6efd"></div>
+                                        <div class="rounded" style="height:4px;width:<?= min(100, round($c->total_revenue / $max_company * 100)) ?>%;background:#0d5c0d"></div>
                                     </div>
                                 </div>
                             </td>
@@ -274,7 +274,7 @@ $u_revenues = json_encode(array_map(fn($u) => (float)$u->total_revenue, $by_user
                     label: 'Sales Count',
                     data: <?= $m_counts ?>,
                     type: 'line',
-                    borderColor: '#0d6efd',
+                    borderColor: '#0d5c0d',
                     backgroundColor: 'transparent',
                     borderWidth: 2,
                     pointRadius: 4,
@@ -308,8 +308,8 @@ $u_revenues = json_encode(array_map(fn($u) => (float)$u->total_revenue, $by_user
                 },
                 yCount: {
                     type: 'linear', position: 'right',
-                    ticks: { stepSize: 1, color: '#0d6efd' },
-                    title: { display: true, text: 'Count', color: '#0d6efd' },
+                    ticks: { stepSize: 1, color: '#0d5c0d' },
+                    title: { display: true, text: 'Count', color: '#0d5c0d' },
                     grid: { drawOnChartArea: false }
                 }
             }

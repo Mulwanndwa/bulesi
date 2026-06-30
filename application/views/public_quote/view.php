@@ -61,6 +61,20 @@
         .signed-badge { background: #d1e7dd; color: #0a5132; border-radius: 6px; padding: 10px 14px; font-size: .85rem; }
         .sig-preview { max-height: 80px; border: 1px solid #dee2e6; border-radius: 6px; background: #fff; padding: 4px; }
 
+        @media (max-width: 575.98px) {
+            .quote-wrap { margin-top: 0; margin-bottom: 40px; }
+            .letterhead { padding: 16px; flex-direction: column !important; }
+            .lh-right { text-align: left !important; margin-top: 10px; }
+            .quote-label { font-size: 1.4rem; }
+            .quote-body { padding: 16px; }
+            .sig-section { padding: 16px; }
+            #sig-name { max-width: 100% !important; }
+            .share-bar { flex-wrap: wrap; gap: 6px; }
+            .share-bar .quote-ref { order: -1; width: 100%; margin-right: 0; }
+            .totals-end { justify-content: stretch !important; }
+            .table-totals { width: 100%; }
+        }
+
         @media print {
             body { background: #fff; }
             .no-print { display: none !important; }
@@ -85,7 +99,7 @@ $wa_url      = 'https://wa.me/?text=' . $wa_text;
     <span class="quote-ref"><?= htmlspecialchars($quote->quote_number) ?></span>
     <a href="<?= $wa_url ?>" target="_blank" rel="noopener" class="btn-wa">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-        Share on WhatsApp
+        <span class="d-none d-sm-inline">Share on </span>WhatsApp
     </a>
     <button class="btn-copy" onclick="copyLink(this)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
@@ -96,7 +110,7 @@ $wa_url      = 'https://wa.me/?text=' . $wa_text;
 <div class="quote-wrap">
 
     <!-- Letterhead -->
-    <div class="letterhead d-flex justify-content-between align-items-start gap-3">
+    <div class="letterhead d-flex flex-column flex-sm-row justify-content-between align-items-start gap-3">
         <div class="d-flex align-items-center gap-3">
             <?php if (!empty($quote->company_logo)): ?>
             <img src="<?= base_url($quote->company_logo) ?>" alt=""
@@ -116,7 +130,7 @@ $wa_url      = 'https://wa.me/?text=' . $wa_text;
                 <?php endif; ?>
             </div>
         </div>
-        <div class="text-end flex-shrink-0">
+        <div class="text-end flex-shrink-0 lh-right">
             <div class="quote-label">Quotation</div>
             <div class="quote-number"><?= htmlspecialchars($quote->quote_number) ?></div>
             <div class="quote-meta"><strong>Date:</strong> <?= date('d F Y', strtotime($quote->quote_date)) ?></div>
@@ -150,12 +164,13 @@ $wa_url      = 'https://wa.me/?text=' . $wa_text;
         </div>
 
         <!-- Line items -->
-        <table class="table table-bordered mb-0" style="font-size:.87rem">
+        <div class="table-responsive" style="-webkit-overflow-scrolling:touch">
+        <table class="table table-bordered mb-0" style="font-size:.87rem;min-width:480px">
             <thead>
                 <tr>
                     <th style="width:36px" class="text-center">#</th>
                     <th>Description</th>
-                    <th style="width:80px">Unit</th>
+                    <th style="width:80px" class="d-none d-sm-table-cell">Unit</th>
                     <th style="width:64px" class="text-center">Qty</th>
                     <th style="width:110px" class="text-end">Unit Price</th>
                     <th style="width:110px" class="text-end">Total</th>
@@ -166,7 +181,7 @@ $wa_url      = 'https://wa.me/?text=' . $wa_text;
                 <tr>
                     <td class="text-center text-muted"><?= $i + 1 ?></td>
                     <td><?= htmlspecialchars($item->item_description) ?></td>
-                    <td><?= htmlspecialchars($item->unit ?: '—') ?></td>
+                    <td class="d-none d-sm-table-cell"><?= htmlspecialchars($item->unit ?: '—') ?></td>
                     <td class="text-center"><?= rtrim(rtrim(number_format($item->quantity, 2), '0'), '.') ?></td>
                     <td class="text-end">R <?= number_format($item->unit_price, 2) ?></td>
                     <td class="text-end fw-semibold">R <?= number_format($item->line_total, 2) ?></td>
@@ -174,9 +189,10 @@ $wa_url      = 'https://wa.me/?text=' . $wa_text;
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
 
         <!-- Totals -->
-        <div class="d-flex justify-content-end mt-3">
+        <div class="d-flex justify-content-end mt-3 totals-end">
             <table class="table-totals" style="min-width:220px">
                 <tr>
                     <td class="text-muted pe-4">Subtotal</td>

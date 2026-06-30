@@ -16,6 +16,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *   POST /api/users           — create a new user (requires Bearer token)
  *   PUT  /api/users/:id/password — update a user's password (requires Bearer token)
  *   POST /api/push-token      — update the authenticated user's push token
+ *   POST /api/profile/avatar  — upload / replace the authenticated user's profile photo (multipart: avatar)
  *   GET  /api/stock           — list active stock items grouped by category (requires Bearer token)
  *   GET  /api/companies       — list companies with their linked users (requires Bearer token)
  *   POST /api/quotation       — create a new quotation
@@ -218,6 +219,7 @@ class Api extends CI_Controller {
                 'company_address'  => $user->company_address   ?: NULL,
                 'company_phone'    => $user->company_phone     ?: NULL,
                 'company_email'    => $user->company_email     ?: NULL,
+                'avatar_url'       => !empty($user->avatar_path) ? base_url($user->avatar_path) : NULL,
             ],
         ]);
     }
@@ -239,7 +241,7 @@ class Api extends CI_Controller {
         // ── GET /api/users ────────────────────────────────────────────
         if ($method === 'get') {
             $rows = $this->db
-                ->select('u.id, u.username, u.first_name, u.last_name, u.email, u.is_active, u.created_at, u.updated_at, u.company_id, g.name AS group_name, c.name AS company_name, COUNT(q.id) AS quotations_count')
+                ->select('u.id, u.username, u.first_name, u.last_name, u.email, u.is_active, u.avatar_path, u.created_at, u.updated_at, u.company_id, g.name AS group_name, c.name AS company_name, COUNT(q.id) AS quotations_count')
                 ->from('auth_users u')
                 ->join('user_groups g', 'g.id = u.group_id', 'left')
                 ->join('companies c', 'c.id = u.company_id', 'left')
@@ -260,6 +262,7 @@ class Api extends CI_Controller {
                     'company_name'     => $u->company_name,
                     'is_active'        => (bool)$u->is_active,
                     'quotations_count' => (int)$u->quotations_count,
+                    'avatar_url'       => !empty($u->avatar_path) ? base_url($u->avatar_path) : NULL,
                     'created_at'       => $u->created_at,
                     'updated_at'       => $u->updated_at,
                 ];
@@ -951,6 +954,7 @@ class Api extends CI_Controller {
                             'last_name'  => $p->last_name  ?: NULL,
                             'full_name'  => $p->full_name,
                             'group_name' => $p->group_name,
+                            'avatar_url' => !empty($p->avatar_path) ? base_url($p->avatar_path) : NULL,
                         ];
                     }, $c->participants),
                     'last_message' => $c->last_message ? [
@@ -1047,7 +1051,9 @@ class Api extends CI_Controller {
             // Auto-mark as read on fetch
             $this->Chat_model->mark_read((int)$id, (int)$user->id);
 
-            return $this->_json(['success' => TRUE, 'count' => count($data), 'data' => $data]);
+            $read_cursors = $this->Chat_model->get_read_cursors((int)$id, (int)$user->id);
+
+            return $this->_json(['success' => TRUE, 'count' => count($data), 'data' => $data, 'read_cursors' => $read_cursors]);
         }
 
         // ── POST: send a message ──────────────────────────────────────
@@ -1056,7 +1062,9 @@ class Api extends CI_Controller {
         }
 
         // Support multipart (file upload) and JSON bodies
-        $has_files = !empty($_FILES['images']['name'][0]) || !empty($_FILES['image']['name']);
+        $has_images = !empty($_FILES['images']['name'][0]) || !empty($_FILES['image']['name']);
+        $has_audio  = !empty($_FILES['audio']['name']);
+        $has_files  = $has_images || $has_audio;
         if ($has_files) {
             $text     = $this->_str($_POST['body']     ?? '');
             $quote_id = isset($_POST['quote_id']) ? (int)$_POST['quote_id'] : NULL;
@@ -1066,17 +1074,26 @@ class Api extends CI_Controller {
             $quote_id = isset($body['quote_id']) ? (int)$body['quote_id'] : NULL;
         }
 
-        // Upload all images (supports images[] array or legacy single image field)
+        // Upload images
         $image_paths = [];
-        if ($has_files) {
+        if ($has_images) {
             $image_paths = $this->_upload_chat_images((int)$id);
             if ($image_paths === FALSE) {
                 return $this->_json(['error' => 'One or more files are invalid. Any image type is allowed — max 5 MB each.'], 422);
             }
         }
 
-        if (!$text && empty($image_paths)) {
-            return $this->_json(['error' => 'body or at least one image is required'], 422);
+        // Upload voice note
+        $audio_path = NULL;
+        if ($has_audio) {
+            $audio_path = $this->_upload_chat_audio();
+            if ($audio_path === FALSE) {
+                return $this->_json(['error' => 'Audio upload failed. Please try again.'], 422);
+            }
+        }
+
+        if (!$text && empty($image_paths) && !$audio_path) {
+            return $this->_json(['error' => 'body, image, or audio is required'], 422);
         }
 
         if ($quote_id) {
@@ -1096,6 +1113,9 @@ class Api extends CI_Controller {
                 $msg_id   = $this->Chat_model->send_message((int)$id, (int)$user->id, $msg_text, $msg_qid, $path, $group_id);
                 $created[] = $this->Chat_model->format_message($this->Chat_model->get_message($msg_id));
             }
+        } elseif ($audio_path) {
+            $msg_id  = $this->Chat_model->send_message((int)$id, (int)$user->id, $text, $quote_id, NULL, NULL, $audio_path);
+            $created[] = $this->Chat_model->format_message($this->Chat_model->get_message($msg_id));
         } else {
             $msg_id  = $this->Chat_model->send_message((int)$id, (int)$user->id, $text, $quote_id, NULL);
             $created[] = $this->Chat_model->format_message($this->Chat_model->get_message($msg_id));
@@ -1110,7 +1130,9 @@ class Api extends CI_Controller {
 
         if ($tokens) {
             $img_count = count($image_paths);
-            if ($img_count > 1) {
+            if ($audio_path) {
+                $preview = '🎤 Voice note';
+            } elseif ($img_count > 1) {
                 $preview = "📷 {$img_count} Photos";
             } elseif ($img_count === 1) {
                 $preview = $text ? '📷 ' . (mb_strlen($text) > 60 ? mb_substr($text, 0, 57) . '…' : $text) : '📷 Photo';
@@ -1118,9 +1140,10 @@ class Api extends CI_Controller {
                 $preview = mb_strlen($text) > 80 ? mb_substr($text, 0, 77) . '…' : $text;
             }
 
+            $sender_name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) ?: $user->username;
             send_push(
                 $tokens,
-                $user->username,
+                $sender_name,
                 $preview,
                 [
                     'type'            => 'chat_message',
@@ -1226,6 +1249,55 @@ class Api extends CI_Controller {
         return $paths;
     }
 
+    private function _upload_chat_audio()
+    {
+        $file = $_FILES['audio'] ?? [];
+        if (empty($file['name']) || $file['error'] !== UPLOAD_ERR_OK) return FALSE;
+        // No size limit — file is compressed after upload
+
+        $upload_dir = FCPATH . 'uploads/audio/';
+        if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, TRUE);
+        @chmod($upload_dir, 0777);
+
+        $ext   = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION)) ?: 'mp4';
+        $fname = 'voice_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        $dest  = $upload_dir . $fname;
+
+        if (!move_uploaded_file($file['tmp_name'], $dest)) return FALSE;
+
+        // Compress with FFmpeg if available
+        $this->_compress_audio($dest);
+
+        return 'uploads/audio/' . $fname;
+    }
+
+    private function _compress_audio($path)
+    {
+        $ffmpeg = trim((string)@shell_exec('which ffmpeg 2>/dev/null'))
+               ?: trim((string)@shell_exec('where ffmpeg 2>/dev/null'));
+        if (!$ffmpeg || !file_exists($path)) return;
+
+        $out = $path . '_tmp.m4a';
+        // Mono, 22 050 Hz, 32 kbps AAC — good quality for voice, tiny file size
+        $cmd = $ffmpeg
+             . ' -y -i ' . escapeshellarg($path)
+             . ' -vn -ac 1 -ar 22050 -b:a 32k -c:a aac '
+             . escapeshellarg($out)
+             . ' 2>/dev/null';
+        @exec($cmd, $output, $code);
+
+        if ($code === 0 && file_exists($out)) {
+            // Only replace if ffmpeg actually made it smaller
+            if (filesize($out) < filesize($path)) {
+                rename($out, $path);
+            } else {
+                @unlink($out);
+            }
+        } else {
+            @unlink($out);
+        }
+    }
+
     // ── Compress a saved image in-place (GD) ──────────────────────────
     // Max 1600px on the longest side, JPEG quality 75, PNG level 7.
     private function _compress_image($path, $ext)
@@ -1294,6 +1366,7 @@ class Api extends CI_Controller {
                     'last_name'  => $p->last_name  ?: NULL,
                     'full_name'  => $p->full_name,
                     'group_name' => $p->group_name,
+                    'avatar_url' => !empty($p->avatar_path) ? base_url($p->avatar_path) : NULL,
                 ];
             }, $c->participants),
             'unread_count' => (int)$c->unread_count,
@@ -1301,6 +1374,127 @@ class Api extends CI_Controller {
     }
 
     // ── Bearer token auth ─────────────────────────────────────────────
+    // ── GET /api/profile ─────────────────────────────────────────────
+    public function profile()
+    {
+        $user = $this->_auth();
+        if (!$user) {
+            return $this->_json(['error' => 'Unauthorized.'], 401);
+        }
+
+        $row = $this->db->query("
+            SELECT u.id, u.username, u.first_name, u.last_name, u.email, u.avatar_path,
+                   g.name AS group_name, c.name AS company_name
+            FROM auth_users u
+            LEFT JOIN user_groups g ON g.id = u.group_id
+            LEFT JOIN companies   c ON c.id = u.company_id
+            WHERE u.id = ?
+        ", [(int)$user->id])->row();
+
+        if (!$row) return $this->_json(['error' => 'User not found.'], 404);
+
+        return $this->_json([
+            'success' => TRUE,
+            'data'    => [
+                'id'           => (int)$row->id,
+                'username'     => $row->username,
+                'first_name'   => $row->first_name ?: NULL,
+                'last_name'    => $row->last_name  ?: NULL,
+                'full_name'    => trim(($row->first_name ?? '') . ' ' . ($row->last_name ?? '')) ?: $row->username,
+                'email'        => $row->email,
+                'group_name'   => $row->group_name,
+                'company_name' => $row->company_name,
+                'avatar_url'   => !empty($row->avatar_path) ? base_url($row->avatar_path) : NULL,
+            ],
+        ]);
+    }
+
+    // ── POST /api/profile/avatar ──────────────────────────────────────
+    public function profile_avatar()
+    {
+        if ($this->input->method() !== 'post') {
+            return $this->_json(['error' => 'Method Not Allowed'], 405);
+        }
+
+        $user = $this->_auth();
+        if (!$user) {
+            return $this->_json(['error' => 'Unauthorized. Provide a valid Bearer token.'], 401);
+        }
+
+        $path = $this->_upload_avatar();
+        if (!$path) {
+            return $this->_json(['error' => 'No valid image provided. Accepted: jpg, png, webp (max 5 MB).'], 422);
+        }
+
+        // Delete old avatar
+        if (!empty($user->avatar_path) && file_exists(FCPATH . $user->avatar_path)) {
+            @unlink(FCPATH . $user->avatar_path);
+        }
+
+        $this->load->model('User_model');
+        $this->User_model->update_avatar($user->id, $path);
+
+        return $this->_json([
+            'success'    => TRUE,
+            'avatar_url' => base_url($path),
+        ]);
+    }
+
+    // ── Upload & square-crop an avatar image ─────────────────────────
+    private function _upload_avatar()
+    {
+        $file = $_FILES['avatar'] ?? [];
+        if (empty($file['name']) || $file['error'] !== UPLOAD_ERR_OK) return FALSE;
+        if ($file['size'] > 5 * 1024 * 1024) return FALSE;
+
+        $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+        $mime    = function_exists('mime_content_type') ? mime_content_type($file['tmp_name']) : '';
+        if (!isset($allowed[$mime])) return FALSE;
+
+        $upload_dir = FCPATH . 'uploads/avatars/';
+        if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, TRUE);
+        @chmod($upload_dir, 0777);
+
+        $fname = 'avatar_' . time() . '_' . bin2hex(random_bytes(4)) . '.jpg';
+        $dest  = $upload_dir . $fname;
+
+        if (!move_uploaded_file($file['tmp_name'], $dest)) return FALSE;
+
+        $this->_compress_avatar($dest, $mime);
+
+        return 'uploads/avatars/' . $fname;
+    }
+
+    // ── Centre-crop to square, resize to 400 px, save as JPEG ────────
+    private function _compress_avatar($path, $mime)
+    {
+        if (!function_exists('imagecreatefromjpeg')) return;
+        $info = @getimagesize($path);
+        if (!$info) return;
+
+        switch ($mime) {
+            case 'image/jpeg': $src = @imagecreatefromjpeg($path); break;
+            case 'image/png':  $src = @imagecreatefrompng($path);  break;
+            case 'image/webp': $src = function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : NULL; break;
+            default: return;
+        }
+        if (!$src) return;
+
+        $ow = imagesx($src);
+        $oh = imagesy($src);
+        $side = min($ow, $oh);
+        $cx   = (int)(($ow - $side) / 2);
+        $cy   = (int)(($oh - $side) / 2);
+        $size = min($side, 400);
+
+        $dst = imagecreatetruecolor($size, $size);
+        imagecopyresampled($dst, $src, 0, 0, $cx, $cy, $size, $size, $side, $side);
+        imagedestroy($src);
+
+        imagejpeg($dst, $path, 82);
+        imagedestroy($dst);
+    }
+
     private function _auth()
     {
         // Apache sets Authorization header; nginx/CLI may put it in $_SERVER

@@ -1,6 +1,6 @@
 <?php
 $stat_cards = [
-    ['key'=>'total',       'label'=>'Total Quotes',  'color'=>'#0d6efd', 'icon'=>'file-earmark-text-fill'],
+    ['key'=>'total',       'label'=>'Total Quotes',  'color'=>'#0d5c0d', 'icon'=>'file-earmark-text-fill'],
     ['key'=>'draft',       'label'=>'Draft',         'color'=>'#6c757d', 'icon'=>'pencil-fill'],
     ['key'=>'sent',        'label'=>'Sent',          'color'=>'#0dcaf0', 'icon'=>'send-fill'],
     ['key'=>'accepted',    'label'=>'Accepted',      'color'=>'#198754', 'icon'=>'check-circle-fill'],
@@ -27,7 +27,7 @@ $stat_cards = [
 </div>
 
 <!-- Total value banner -->
-<div class="alert mb-4 py-2" style="background:#fff;border-left:4px solid #0d6efd;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.06)">
+<div class="alert mb-4 py-2" style="background:#fff;border-left:4px solid #0d5c0d;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.06)">
     <span class="text-muted me-2">Total Quote Value:</span>
     <strong class="text-primary fs-5">R <?= number_format($stats['total_value'], 2) ?></strong>
 </div>

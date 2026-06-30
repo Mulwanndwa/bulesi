@@ -73,6 +73,8 @@ $route['api/conversations/(:num)']          = 'Api/conversation/$1';
 $route['api/users/(:num)/password']   = 'Api/user_password/$1';
 $route['api/quotation/(:num)/images'] = 'Api/quotation_images/$1';
 $route['api/push-token']              = 'Api/push_token';
+$route['api/profile/avatar']          = 'Api/profile_avatar';
+$route['api/profile']                 = 'Api/profile';
 
 $route['pos']                    = 'Pos/index';
 $route['pos/place_order']        = 'Pos/place_order';

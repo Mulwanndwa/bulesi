@@ -5,8 +5,50 @@ $action = $is_edit
 $is_self = $is_edit && (int)$record->id === (int)$user['id'];
 ?>
 
-<?= form_open($action) ?>
+<?= form_open_multipart($action) ?>
 <div class="row g-3">
+
+    <!-- Avatar card -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-person-bounding-box me-2 text-muted"></i>Profile Photo</div>
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-4 flex-wrap">
+                    <!-- Preview -->
+                    <div id="avatar-preview-wrap">
+                        <?php if ($is_edit && !empty($record->avatar_path)): ?>
+                        <img id="avatar-preview" src="<?= base_url($record->avatar_path) ?>"
+                             style="width:96px;height:96px;object-fit:cover;border-radius:50%;border:2px solid #dee2e6">
+                        <?php else: ?>
+                        <div id="avatar-initials"
+                             class="d-flex align-items-center justify-content-center rounded-circle fw-bold text-white"
+                             style="width:96px;height:96px;font-size:1.6rem;background:#0d5c0d;flex-shrink:0">
+                            <?= strtoupper(substr($record->first_name ?? $record->username ?? 'U', 0, 1)) ?>
+                        </div>
+                        <img id="avatar-preview" src="" alt=""
+                             style="width:96px;height:96px;object-fit:cover;border-radius:50%;border:2px solid #dee2e6;display:none">
+                        <?php endif; ?>
+                    </div>
+                    <!-- Controls -->
+                    <div>
+                        <label class="btn btn-outline-primary btn-sm mb-2" for="avatar-input">
+                            <i class="bi bi-upload me-1"></i>
+                            <?= ($is_edit && !empty($record->avatar_path)) ? 'Replace Photo' : 'Upload Photo' ?>
+                        </label>
+                        <input type="file" id="avatar-input" name="avatar" accept="image/jpeg,image/png,image/webp"
+                               class="d-none" onchange="previewAvatar(this)">
+                        <div class="text-muted" style="font-size:.75rem">JPG, PNG or WebP · max 5 MB<br>Will be cropped to a square.</div>
+                        <?php if ($is_edit && !empty($record->avatar_path)): ?>
+                        <div class="form-check mt-2">
+                            <input type="checkbox" name="remove_avatar" id="remove_avatar" value="1" class="form-check-input">
+                            <label class="form-check-label text-danger" for="remove_avatar" style="font-size:.82rem">Remove current photo</label>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="col-12">
         <div class="card">
@@ -169,5 +211,18 @@ function togglePwd(id, btn) {
     var showing = input.type === 'text';
     input.type = showing ? 'password' : 'text';
     btn.querySelector('i').className = showing ? 'bi bi-eye' : 'bi bi-eye-slash';
+}
+
+function previewAvatar(input) {
+    if (!input.files || !input.files[0]) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var preview = document.getElementById('avatar-preview');
+        var initials = document.getElementById('avatar-initials');
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+        if (initials) initials.style.display = 'none';
+    };
+    reader.readAsDataURL(input.files[0]);
 }
 </script>

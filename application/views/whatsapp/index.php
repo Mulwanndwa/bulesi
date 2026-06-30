@@ -227,7 +227,7 @@ $status_styles = [
         <div class="row g-3 mb-4">
             <?php
             $wa_stats = [
-                ['label' => 'Sent Today',    'value' => '0',  'color' => '#0d6efd', 'icon' => 'send-fill'],
+                ['label' => 'Sent Today',    'value' => '0',  'color' => '#0d5c0d', 'icon' => 'send-fill'],
                 ['label' => 'Delivered',     'value' => '0',  'color' => '#198754', 'icon' => 'check2-all'],
                 ['label' => 'Read',          'value' => '0',  'color' => '#25d366', 'icon' => 'eye-fill'],
                 ['label' => 'Failed',        'value' => '0',  'color' => '#dc3545', 'icon' => 'x-circle-fill'],

@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= isset($title) ? htmlspecialchars($title) . ' — Bulesi Trang' : 'Bulesi Trang' ?></title>
+    <title><?= isset($title) ? htmlspecialchars($title) . ' — Bulesi Tradings' : 'Bulesi Tradings' ?></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
-        :root { --sb-w: 230px; --sb-bg: #12121f; --accent: #e94560; }
+        :root { --sb-w: 230px; --sb-bg: #0d5c0d; --accent: #e94560; }
         body { background: #f2f4f8; font-size: .9rem; }
 
         /* ── Sidebar ── */
@@ -26,10 +26,10 @@
         .sb-brand i { color: var(--accent); font-size: 1.2rem; }
         .sb-label {
             font-size: .62rem; text-transform: uppercase; letter-spacing: 1.3px;
-            color: rgba(255,255,255,.28); padding: 14px 20px 5px;
+            color: #d0d0c8; padding: 14px 20px 5px;
         }
         .sb-link {
-            color: rgba(255,255,255,.6); padding: 9px 20px;
+            color: white; padding: 9px 20px;
             display: flex; align-items: center; gap: 10px;
             font-size: .87rem; text-decoration: none;
             border-left: 3px solid transparent; transition: all .12s;
@@ -76,6 +76,15 @@
         .s-rejected    { background:#f8d7da; color:#842029; }
         .s-cancelled   { background:#dee2e6; color:#495057; }
 
+        /* ── Primary button override ── */
+        .btn-primary { background-color: #0d5c0d; border-color: #0d5c0d; }
+        .btn-primary:hover, .btn-primary:focus, .btn-primary:active { background-color: #0a4a0a; border-color: #0a4a0a; }
+        .btn-outline-primary { color: #0d5c0d; border-color: #0d5c0d; }
+        .btn-outline-primary:hover { background-color: #0d5c0d; border-color: #0d5c0d; color: #fff; }
+        .text-primary { color: #0d5c0d !important; }
+        .bg-primary { background-color: #0d5c0d !important; }
+        .border-primary { border-color: #0d5c0d !important; }
+
         @media print {
             #sidebar, #topbar, .no-print { display: none !important; }
             #main { margin-left: 0 !important; }
@@ -91,7 +100,7 @@
     <a href="<?= base_url('dashboard') ?>" class="sb-brand">
         <img src="<?= base_url('assets/img/logo.png') ?>" alt=""
              style="width:34px;height:34px;object-fit:contain;flex-shrink:0">
-        Bulesi Trang
+        Bulesi Tradings
     </a>
     <nav>
         <div class="sb-label">Overview</div>

@@ -42,7 +42,7 @@ $max_item     = !empty($popular_items) ? max(array_map(fn($i) => (float)$i->tota
 <div class="row g-3 mb-4">
     <?php
     $kpi_cards = [
-        ['val' => $kpis->total_quotes,   'lbl' => 'Total Quotations',    'sub' => 'in period',               'icon' => 'file-earmark-text', 'color' => '#0d6efd'],
+        ['val' => $kpis->total_quotes,   'lbl' => 'Total Quotations',    'sub' => 'in period',               'icon' => 'file-earmark-text', 'color' => '#0d5c0d'],
         ['val' => 'R '.number_format($kpis->total_value, 2),    'lbl' => 'Total Quote Value',     'sub' => 'gross value quoted',      'icon' => 'cash-stack',        'color' => '#6f42c1'],
         ['val' => 'R '.number_format($kpis->accepted_value, 2), 'lbl' => 'Accepted / Won',        'sub' => 'accepted + in progress + completed + invoiced', 'icon' => 'check-circle',      'color' => '#198754'],
         ['val' => 'R '.number_format($kpis->pipeline_value, 2), 'lbl' => 'In Pipeline',           'sub' => 'draft + sent',            'icon' => 'arrow-right-circle', 'color' => '#fd7e14'],
@@ -128,7 +128,7 @@ $max_item     = !empty($popular_items) ? max(array_map(fn($i) => (float)$i->tota
                                 <?php endif; ?>
                                 <div class="mt-1">
                                     <div class="bg-light rounded" style="height:4px;overflow:hidden">
-                                        <div class="rounded" style="height:4px;width:<?= min(100, round($c->total_value / $max_customer * 100)) ?>%;background:#0d6efd"></div>
+                                        <div class="rounded" style="height:4px;width:<?= min(100, round($c->total_value / $max_customer * 100)) ?>%;background:#0d5c0d"></div>
                                     </div>
                                 </div>
                             </td>
@@ -214,7 +214,7 @@ $max_item     = !empty($popular_items) ? max(array_map(fn($i) => (float)$i->tota
                     label: 'Quote Count',
                     data: mCounts,
                     backgroundColor: 'rgba(13,110,253,0.7)',
-                    borderColor: '#0d6efd',
+                    borderColor: '#0d5c0d',
                     borderWidth: 1,
                     borderRadius: 4,
                     yAxisID: 'yCount',
@@ -267,8 +267,8 @@ $max_item     = !empty($popular_items) ? max(array_map(fn($i) => (float)$i->tota
             scales: {
                 yCount: {
                     type: 'linear', position: 'left',
-                    ticks: { stepSize: 1, color: '#0d6efd' },
-                    title: { display: true, text: 'Count', color: '#0d6efd' },
+                    ticks: { stepSize: 1, color: '#0d5c0d' },
+                    title: { display: true, text: 'Count', color: '#0d5c0d' },
                     grid: { color: 'rgba(0,0,0,.06)' }
                 },
                 yValue: {

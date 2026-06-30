@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login &mdash; Bulesi Trang</title>
+    <title>Login &mdash; Bulesi Tradings</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <style>
         body {
@@ -65,8 +65,8 @@
 
 <div class="card login-card">
     <div class="card-header">
-        <img src="<?= base_url('assets/img/logo.png') ?>" alt="Bulesi Trang Logo">
-        <h4>Bulesi Trang</h4>
+        <img src="<?= base_url('assets/img/logo.png') ?>" alt="Bulesi Tradings Logo">
+        <h4>Bulesi Tradings</h4>
         <small class="text-white-50">Sign in to your account</small>
     </div>
     <div class="card-body">

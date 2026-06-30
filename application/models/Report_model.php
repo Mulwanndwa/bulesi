@@ -228,6 +228,7 @@ class Report_model extends CI_Model {
                 COUNT(m.id)                                AS total_messages,
                 COUNT(DISTINCT m.sender_id)                AS active_users,
                 COUNT(CASE WHEN m.image_path IS NOT NULL THEN 1 END) AS image_messages,
+                COUNT(CASE WHEN m.audio_path IS NOT NULL THEN 1 END) AS audio_messages,
                 COUNT(CASE WHEN m.quote_id IS NOT NULL THEN 1 END)   AS quote_messages
             FROM messages m
             WHERE m.created_at BETWEEN ? AND ?
@@ -278,11 +279,11 @@ class Report_model extends CI_Model {
     {
         $rows = $this->db->query("
             SELECT
-                m.id, m.body, m.image_path, m.created_at, m.conversation_id,
+                m.id, m.body, m.image_path, m.audio_path, m.created_at, m.conversation_id,
                 u.id AS sender_id,
                 u.username AS sender_username,
                 TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS sender_full_name,
-                q.quote_number
+                q.quote_number, q.customer_name AS quote_customer, q.status AS quote_status
             FROM messages m
             JOIN auth_users u ON u.id = m.sender_id
             LEFT JOIN quotations q ON q.id = m.quote_id

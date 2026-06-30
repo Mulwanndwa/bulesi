@@ -66,7 +66,7 @@ class Users extends MY_Controller {
         }
 
         $company_id = (int)$this->input->post('company_id') ?: NULL;
-        $this->User_model->create([
+        $new_id = $this->User_model->create([
             'username'   => $username,
             'first_name' => $this->input->post('first_name', TRUE),
             'last_name'  => $this->input->post('last_name',  TRUE),
@@ -76,6 +76,11 @@ class Users extends MY_Controller {
             'password'   => $this->input->post('password'),
             'is_active'  => $this->input->post('is_active') ? 1 : 0,
         ]);
+
+        $avatar = $this->_upload_avatar();
+        if ($avatar) {
+            $this->User_model->update_avatar($new_id, $avatar);
+        }
 
         $this->session->set_flashdata('success', 'User created successfully.');
         redirect('users');
@@ -139,6 +144,21 @@ class Users extends MY_Controller {
         }
 
         $this->User_model->update($id, $data);
+
+        // Handle avatar
+        if ($this->input->post('remove_avatar') && !empty($record->avatar_path)) {
+            if (file_exists(FCPATH . $record->avatar_path)) @unlink(FCPATH . $record->avatar_path);
+            $this->User_model->update_avatar($id, NULL);
+        } else {
+            $avatar = $this->_upload_avatar();
+            if ($avatar) {
+                if (!empty($record->avatar_path) && file_exists(FCPATH . $record->avatar_path)) {
+                    @unlink(FCPATH . $record->avatar_path);
+                }
+                $this->User_model->update_avatar($id, $avatar);
+            }
+        }
+
         $this->session->set_flashdata('success', 'User updated successfully.');
         redirect('users');
     }
@@ -216,6 +236,49 @@ class Users extends MY_Controller {
         $this->form_validation->set_rules('company_id',       'Company',          'required|integer');
         $this->form_validation->set_rules('password',         'Password',         'required|min_length[6]');
         $this->form_validation->set_rules('confirm_password', 'Confirm Password', 'required|matches[password]');
+    }
+
+    private function _upload_avatar()
+    {
+        $file = $_FILES['avatar'] ?? [];
+        if (empty($file['name']) || $file['error'] !== UPLOAD_ERR_OK) return NULL;
+        if ($file['size'] > 5 * 1024 * 1024) return NULL;
+
+        $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+        $mime    = function_exists('mime_content_type') ? mime_content_type($file['tmp_name']) : '';
+        if (!isset($allowed[$mime])) return NULL;
+
+        $dir = FCPATH . 'uploads/avatars/';
+        if (!is_dir($dir)) mkdir($dir, 0777, TRUE);
+        @chmod($dir, 0777);
+
+        $fname = 'avatar_' . time() . '_' . bin2hex(random_bytes(4)) . '.jpg';
+        $dest  = $dir . $fname;
+
+        if (!move_uploaded_file($file['tmp_name'], $dest)) return NULL;
+
+        // Centre-crop to 400 px square
+        if (function_exists('imagecreatefromjpeg')) {
+            $info = @getimagesize($dest);
+            switch ($info[2] ?? 0) {
+                case IMAGETYPE_JPEG: $src = @imagecreatefromjpeg($dest); break;
+                case IMAGETYPE_PNG:  $src = @imagecreatefrompng($dest);  break;
+                case IMAGETYPE_WEBP: $src = function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($dest) : NULL; break;
+                default: $src = NULL;
+            }
+            if ($src) {
+                $ow = imagesx($src); $oh = imagesy($src);
+                $side = min($ow, $oh); $size = min($side, 400);
+                $cx = (int)(($ow - $side) / 2); $cy = (int)(($oh - $side) / 2);
+                $dst = imagecreatetruecolor($size, $size);
+                imagecopyresampled($dst, $src, 0, 0, $cx, $cy, $size, $size, $side, $side);
+                imagedestroy($src);
+                imagejpeg($dst, $dest, 82);
+                imagedestroy($dst);
+            }
+        }
+
+        return 'uploads/avatars/' . $fname;
     }
 
     private function _set_rules_edit()

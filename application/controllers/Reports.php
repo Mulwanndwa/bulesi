@@ -6,7 +6,7 @@ class Reports extends MY_Controller {
     private $statuses = [
         'draft'       => ['label' => 'Draft',       'color' => '#6c757d'],
         'sent'        => ['label' => 'Sent',        'color' => '#0dcaf0'],
-        'accepted'    => ['label' => 'Accepted',    'color' => '#0d6efd'],
+        'accepted'    => ['label' => 'Accepted',    'color' => '#0d5c0d'],
         'in_progress' => ['label' => 'In Progress', 'color' => '#fd7e14'],
         'completed'   => ['label' => 'Completed',   'color' => '#198754'],
         'invoiced'    => ['label' => 'Invoiced',    'color' => '#212529'],

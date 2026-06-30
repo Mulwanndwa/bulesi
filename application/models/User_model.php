@@ -3,6 +3,20 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class User_model extends CI_Model {
 
+    public function __construct()
+    {
+        parent::__construct();
+        $cols = array_column($this->db->field_data('auth_users'), 'name');
+        if (!in_array('avatar_path', $cols)) {
+            $this->db->query("ALTER TABLE auth_users ADD COLUMN avatar_path VARCHAR(500) NULL DEFAULT NULL");
+        }
+    }
+
+    public function update_avatar($id, $path)
+    {
+        $this->db->where('id', (int)$id)->update('auth_users', ['avatar_path' => $path ?: NULL]);
+    }
+
     private function _base_query()
     {
         return $this->db

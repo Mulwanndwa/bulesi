@@ -2,7 +2,7 @@
 <div class="row g-3 mb-4">
     <?php
     $stat_cards = [
-        ['val' => (int)$stats->total_items,                               'lbl' => 'Total Items',     'icon' => 'boxes',            'color' => '#0d6efd'],
+        ['val' => (int)$stats->total_items,                               'lbl' => 'Total Items',     'icon' => 'boxes',            'color' => '#0d5c0d'],
         ['val' => 'R '.number_format($stats->total_value, 2),             'lbl' => 'Stock Value',     'icon' => 'currency-dollar',  'color' => '#198754'],
         ['val' => (int)$stats->low_stock,                                 'lbl' => 'Low Stock',       'icon' => 'exclamation-triangle', 'color' => '#fd7e14'],
         ['val' => (int)$stats->out_of_stock,                              'lbl' => 'Out of Stock',    'icon' => 'x-circle',         'color' => '#dc3545'],

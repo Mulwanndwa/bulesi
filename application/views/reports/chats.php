@@ -24,11 +24,12 @@
 <div class="row g-3 mb-4">
     <?php
     $cards = [
-        ['val' => (int)($kpis->total_messages       ?? 0), 'lbl' => 'Total Messages',  'sub' => 'sent in period',      'icon' => 'chat-fill',         'color' => '#0d6efd'],
-        ['val' => (int)($kpis->total_conversations  ?? 0), 'lbl' => 'Active Threads',  'sub' => 'conversations used',  'icon' => 'chat-dots-fill',    'color' => '#6f42c1'],
-        ['val' => (int)($kpis->active_users         ?? 0), 'lbl' => 'Active Users',    'sub' => 'unique senders',      'icon' => 'people-fill',       'color' => '#198754'],
-        ['val' => (int)($kpis->image_messages       ?? 0), 'lbl' => 'Images Shared',   'sub' => 'photo messages',      'icon' => 'image-fill',        'color' => '#fd7e14'],
-        ['val' => (int)($kpis->quote_messages       ?? 0), 'lbl' => 'Quotes in Chat',  'sub' => 'messages with quote', 'icon' => 'file-earmark-text', 'color' => '#e94560'],
+        ['val' => (int)($kpis->total_messages       ?? 0), 'lbl' => 'Total Messages',  'sub' => 'sent in period',      'icon' => 'chat-fill',            'color' => '#0d5c0d'],
+        ['val' => (int)($kpis->total_conversations  ?? 0), 'lbl' => 'Active Threads',  'sub' => 'conversations used',  'icon' => 'chat-dots-fill',       'color' => '#6f42c1'],
+        ['val' => (int)($kpis->active_users         ?? 0), 'lbl' => 'Active Users',    'sub' => 'unique senders',      'icon' => 'people-fill',          'color' => '#198754'],
+        ['val' => (int)($kpis->image_messages       ?? 0), 'lbl' => 'Images Shared',   'sub' => 'photo messages',      'icon' => 'image-fill',           'color' => '#fd7e14'],
+        ['val' => (int)($kpis->audio_messages       ?? 0), 'lbl' => 'Voice Notes',     'sub' => 'audio messages',      'icon' => 'mic-fill',             'color' => '#20c997'],
+        ['val' => (int)($kpis->quote_messages       ?? 0), 'lbl' => 'Quotes in Chat',  'sub' => 'messages with quote', 'icon' => 'file-earmark-text',    'color' => '#e94560'],
     ];
     foreach ($cards as $c): ?>
     <div class="col-xl col-md-4 col-6">
@@ -67,7 +68,7 @@
                         <div class="text-muted" style="font-size:.75rem"><?= htmlspecialchars($u->username) ?></div>
                         <div class="mt-1">
                             <div class="bg-light rounded" style="height:4px;overflow:hidden">
-                                <div class="rounded" style="height:4px;width:<?= min(100, round($u->message_count / $max * 100)) ?>%;background:#0d6efd"></div>
+                                <div class="rounded" style="height:4px;width:<?= min(100, round($u->message_count / $max * 100)) ?>%;background:#0d5c0d"></div>
                             </div>
                         </div>
                     </td>
@@ -149,14 +150,38 @@
                         <div class="mb-1"><?= htmlspecialchars(mb_substr($m->body, 0, 120)) ?><?= mb_strlen($m->body) > 120 ? '…' : '' ?></div>
                         <?php endif; ?>
 
-                        <?php if ($m->quote_number): ?>
-                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle me-1" style="font-size:.72rem">
-                            <i class="bi bi-file-earmark-text me-1"></i><?= htmlspecialchars($m->quote_number) ?>
-                        </span>
+                        <?php if (!empty($m->audio_path)): ?>
+                        <div class="mb-1">
+                            <audio controls preload="none" style="height:32px;max-width:260px;width:100%">
+                                <source src="<?= base_url($m->audio_path) ?>">
+                            </audio>
+                        </div>
                         <?php endif; ?>
 
-                        <?php if (!empty($m->image_path) && !$m->body): ?>
+                        <?php if ($m->quote_number): ?>
+                        <div class="d-inline-flex align-items-center gap-1 rounded px-2 py-1 mb-1"
+                             style="background:#fff0f3;border:1px solid #f8bcd0;font-size:.75rem">
+                            <i class="bi bi-file-earmark-text text-danger" style="font-size:.8rem"></i>
+                            <span class="fw-semibold text-danger"><?= htmlspecialchars($m->quote_number) ?></span>
+                            <?php if (!empty($m->quote_customer)): ?>
+                            <span class="text-muted">&mdash; <?= htmlspecialchars(mb_substr($m->quote_customer, 0, 30)) ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($m->quote_status)): ?>
+                            <span class="badge ms-1" style="font-size:.65rem;background:
+                                <?= in_array($m->quote_status, ['accepted','completed','invoiced']) ? '#d1fae5' : '#fef3c7' ?>;
+                                color:<?= in_array($m->quote_status, ['accepted','completed','invoiced']) ? '#065f46' : '#92400e' ?>">
+                                <?= ucfirst($m->quote_status) ?>
+                            </span>
+                            <?php endif; ?>
+                        </div>
+                        <?php endif; ?>
+
+                        <?php if (!empty($m->image_path) && !$m->body && empty($m->audio_path)): ?>
                         <span class="text-muted" style="font-size:.78rem"><i class="bi bi-image me-1"></i>Photo</span>
+                        <?php endif; ?>
+
+                        <?php if (empty($m->body) && !empty($m->audio_path) && empty($m->image_path)): ?>
+                        <span class="text-muted" style="font-size:.78rem"><i class="bi bi-mic me-1"></i>Voice note</span>
                         <?php endif; ?>
 
                         <div class="text-muted mt-1" style="font-size:.72rem">

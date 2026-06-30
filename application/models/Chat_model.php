@@ -6,10 +6,12 @@ class Chat_model extends CI_Model {
     public function __construct()
     {
         parent::__construct();
-        // Auto-add group_id column for multi-image batch grouping
         $cols = array_column($this->db->field_data('messages'), 'name');
         if (!in_array('group_id', $cols)) {
             $this->db->query("ALTER TABLE messages ADD COLUMN group_id VARCHAR(32) NULL DEFAULT NULL, ADD INDEX idx_msg_group (group_id)");
+        }
+        if (!in_array('audio_path', $cols)) {
+            $this->db->query("ALTER TABLE messages ADD COLUMN audio_path VARCHAR(500) NULL DEFAULT NULL");
         }
     }
 
@@ -108,7 +110,7 @@ class Chat_model extends CI_Model {
     public function get_messages($conversation_id, $limit = 50, $before_id = NULL)
     {
         $sql = "
-            SELECT m.id, m.conversation_id, m.sender_id, m.body, m.quote_id, m.image_path, m.group_id, m.created_at,
+            SELECT m.id, m.conversation_id, m.sender_id, m.body, m.quote_id, m.image_path, m.audio_path, m.group_id, m.created_at,
                    u.username AS sender_username, u.first_name AS sender_first_name, u.last_name AS sender_last_name,
                    q.quote_number, q.customer_name, q.total, q.status AS quote_status,
                    q.public_token AS quote_token
@@ -132,7 +134,7 @@ class Chat_model extends CI_Model {
         return array_reverse($rows);
     }
 
-    public function send_message($conversation_id, $sender_id, $body, $quote_id = NULL, $image_path = NULL, $group_id = NULL)
+    public function send_message($conversation_id, $sender_id, $body, $quote_id = NULL, $image_path = NULL, $group_id = NULL, $audio_path = NULL)
     {
         $this->db->insert('messages', [
             'conversation_id' => (int)$conversation_id,
@@ -141,6 +143,7 @@ class Chat_model extends CI_Model {
             'quote_id'        => $quote_id  ? (int)$quote_id : NULL,
             'image_path'      => $image_path ?: NULL,
             'group_id'        => $group_id  ?: NULL,
+            'audio_path'      => $audio_path ?: NULL,
         ]);
         $msg_id = $this->db->insert_id();
 
@@ -154,7 +157,7 @@ class Chat_model extends CI_Model {
     public function get_message($id)
     {
         return $this->db->query("
-            SELECT m.id, m.conversation_id, m.sender_id, m.body, m.quote_id, m.image_path, m.group_id, m.created_at,
+            SELECT m.id, m.conversation_id, m.sender_id, m.body, m.quote_id, m.image_path, m.audio_path, m.group_id, m.created_at,
                    u.username AS sender_username, u.first_name AS sender_first_name, u.last_name AS sender_last_name,
                    q.quote_number, q.customer_name, q.total, q.status AS quote_status,
                    q.public_token AS quote_token
@@ -196,7 +199,7 @@ class Chat_model extends CI_Model {
 
     private function _participants($conversation_id, $exclude_user_id = NULL)
     {
-        $this->db->select('u.id, u.username, u.first_name, u.last_name, g.name AS group_name')
+        $this->db->select('u.id, u.username, u.first_name, u.last_name, u.avatar_path, g.name AS group_name')
                  ->from('auth_users u')
                  ->join('conversation_participants cp', 'cp.user_id = u.id')
                  ->join('user_groups g', 'g.id = u.group_id', 'left')
@@ -260,6 +263,7 @@ class Chat_model extends CI_Model {
             'sender_full_name'    => $senderFull,
             'body'                => $m->body,
             'image_url'           => !empty($m->image_path) ? $base . ltrim($m->image_path, '/') : NULL,
+            'audio_url'           => !empty($m->audio_path) ? $base . ltrim($m->audio_path, '/') : NULL,
             'group_id'            => $m->group_id ?? NULL,
             'created_at'          => $m->created_at,
             'quote'               => NULL,
@@ -280,4 +284,19 @@ class Chat_model extends CI_Model {
     }
 
     public function format_message($m) { return $this->_format_message($m); }
+
+    public function get_read_cursors($conversation_id, $exclude_user_id)
+    {
+        $rows = $this->db->query("
+            SELECT cp.user_id, cp.last_read_at
+            FROM conversation_participants cp
+            WHERE cp.conversation_id = ?
+              AND cp.user_id != ?
+        ", [(int)$conversation_id, (int)$exclude_user_id])->result();
+
+        return array_map(fn($r) => [
+            'user_id'     => (int)$r->user_id,
+            'last_read_at'=> $r->last_read_at,
+        ], $rows);
+    }
 }

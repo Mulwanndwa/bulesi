@@ -35,12 +35,19 @@ $group_badge = [
                     <tr class="<?= !$u->is_active ? 'table-light text-muted' : '' ?>">
                         <td>
                             <div class="d-flex align-items-center gap-3">
-                                <!-- Avatar initials -->
+                                <!-- Avatar -->
+                                <?php if (!empty($u->avatar_path)): ?>
+                                <img src="<?= base_url($u->avatar_path) ?>" alt=""
+                                     style="width:38px;height:38px;object-fit:cover;border-radius:50%;flex-shrink:0;
+                                            border:2px solid <?= $u->is_active ? '#0d5c0d' : '#adb5bd' ?>;
+                                            opacity:<?= $u->is_active ? '1' : '.55' ?>">
+                                <?php else: ?>
                                 <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
                                      style="width:38px;height:38px;font-size:.85rem;flex-shrink:0;
-                                            background:<?= $u->is_active ? '#0d6efd' : '#adb5bd' ?>">
+                                            background:<?= $u->is_active ? '#0d5c0d' : '#adb5bd' ?>">
                                     <?= strtoupper(substr($u->username, 0, 2)) ?>
                                 </div>
+                                <?php endif; ?>
                                 <div>
                                     <div class="fw-semibold">
                                         <?= htmlspecialchars($u->username) ?>
