@@ -107,7 +107,7 @@
         // Cordova Statusbar settings
         statusbar: {
           iosOverlaysWebView: true,
-          androidOverlaysWebView: false,
+          androidOverlaysWebView: true,
         },
       };
       // Login screen data
@@ -124,6 +124,7 @@
           // Init cordova APIs (see cordova-app.js)
           if (device.cordova) {
             cordovaApp.init(f7);
+             
           }
 
           // Call F7 APIs here

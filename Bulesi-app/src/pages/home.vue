@@ -10,10 +10,10 @@
           </svg>
         </f7-link>
         <div v-else class="nav-brand">
-          <span class="nav-brand-icon">
+          <!-- <span class="nav-brand-icon">
             <img src="../img/logo.png" alt="Bulise" style="width:18px;height:18px;object-fit:contain;" />
-          </span>
-          {{ user.first_name || user.username }}
+          </span> -->
+         <b>Welcome back, </b> {{ user.first_name || user.username }}
         </div>
       </f7-nav-left>
       <f7-nav-title v-if="view === 'conversations'">Messages</f7-nav-title>
@@ -22,12 +22,21 @@
       </f7-nav-title>
 
       <f7-nav-right>
-        <button v-if="view !== 'login' && view !== 'register'" class="nav-chat-btn" @click="goToConversations">
+        <button v-if="view !== 'login' && view !== 'register'" :class="['nav-chat-btn', showChatHint && 'nav-chat-btn-flash']" @click="showChatHint = false; goToConversations()">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
           </svg>
           <span v-if="totalUnread > 0" class="nav-chat-badge">{{ totalUnread > 9 ? '9+' : totalUnread }}</span>
         </button>
+        <Teleport to="body">
+          <div v-if="showChatHint" class="chat-hint-popover" @click="showChatHint = false">
+            <div class="chat-hint-arrow"></div>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span>Tap here to chat</span>
+          </div>
+        </Teleport>
         <div class="nav-menu-wrap">
           <button class="nav-burger" @click.stop="menuOpen = !menuOpen">
             <span></span><span></span><span></span>
@@ -46,7 +55,7 @@
                 </svg>
               </div>
               <div>
-                <div class="nav-drop-username">{{ user.username }}</div>
+                <div class="nav-drop-username">{{ user.first_name || user.username }}</div>
                 <div class="nav-drop-group">{{ user.group_name }}</div>
               </div>
             </div>
@@ -92,6 +101,15 @@
                 <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
               </svg>
               Customer View
+            </button>
+
+            <!-- Profile -->
+            <button v-if="view !== 'profile'" class="nav-drop-item" @click="goToProfile(); menuOpen = false">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+              My Profile
             </button>
 
             <!-- Change Password -->
@@ -324,34 +342,41 @@
         <p>No companies found</p>
       </div>
 
-      <div v-else class="co-grid">
+      <div v-else class="qt-list">
         <div
           v-for="c in companies"
           :key="c.id"
-          class="co-grid-card"
+          class="qt-card"
           @click="openCompany(c)"
+          style="cursor:pointer"
         >
-          <div class="co-grid-logo">
-            <img v-if="c.logo_url" :src="imgUrl(c.logo_url)" :alt="c.name" class="co-grid-img" />
-            <div v-else class="co-grid-placeholder">
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                <polyline points="9 22 9 12 15 12 15 22"/>
-              </svg>
+          <div class="qt-card-main">
+            <div class="co-list-logo">
+              <img v-if="c.logo_url" :src="imgUrl(c.logo_url)" :alt="c.name" class="co-list-img" />
+              <div v-else class="co-list-placeholder">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                  <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+              </div>
+            </div>
+            <div class="qt-card-left">
+              <div class="qt-number">{{ c.name }}</div>
+              <div v-if="c.address" class="qt-customer">{{ c.address }}</div>
+            </div>
+            <div class="qt-card-right">
+              <span :class="['st-badge', c.is_active ? 'st-accepted' : 'st-cancelled']">
+                {{ c.is_active ? 'Active' : 'Inactive' }}
+              </span>
             </div>
           </div>
-          <div class="co-grid-name">{{ c.name }}</div>
-          <div v-if="c.address" class="co-grid-addr">{{ c.address }}</div>
-          <div class="co-grid-footer">
-            <span class="co-grid-users">
+          <div class="qt-card-footer">
+            <span>
               <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:3px;vertical-align:middle">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
                 <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
               </svg>
-              {{ c.users?.length ?? 0 }}
-            </span>
-            <span :class="['co-grid-status', c.is_active ? 'co-grid-active' : 'co-grid-inactive']">
-              {{ c.is_active ? 'Active' : 'Inactive' }}
+              {{ c.users?.length ?? 0 }} users
             </span>
           </div>
         </div>
@@ -522,6 +547,79 @@
         </button>
 
       </div>
+    </template>
+
+    <!-- ── PROFILE ─────────────────────────────────────────────────── -->
+    <template v-if="view === 'profile'">
+
+      <div class="profile-wrap">
+
+        <!-- Avatar section -->
+        <div class="profile-avatar-section">
+          <label class="profile-avatar-label" for="profile-avatar-input">
+            <div class="profile-avatar-ring">
+              <img v-if="user.avatar_url" :src="user.avatar_url" class="profile-avatar-img" />
+              <div v-else class="profile-avatar-placeholder">
+                <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </div>
+              <div class="profile-avatar-overlay">
+                <f7-preloader v-if="profileUploading" :size="22" color="white"></f7-preloader>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+              </div>
+            </div>
+            <input type="file" id="profile-avatar-input" accept="image/jpeg,image/png,image/webp" style="display:none" @change="onAvatarPicked" />
+          </label>
+          <div class="profile-name">{{ user.first_name ? user.first_name + ' ' + (user.last_name || '') : user.username }}</div>
+          <div class="profile-role">{{ user.group_name }}</div>
+
+          <div v-if="profileError" class="alert-err" style="margin:12px 20px 0;font-size:.8rem">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <span>{{ profileError }}</span>
+          </div>
+          <div v-if="profileSuccess" class="alert-ok" style="margin:12px 20px 0;font-size:.8rem">
+            <i class="bi bi-check-circle-fill"></i>
+            <span>{{ profileSuccess }}</span>
+          </div>
+        </div>
+
+        <!-- Info cards -->
+        <div class="profile-info-list">
+
+          <div class="profile-info-card">
+            <div class="profile-info-row">
+              <span class="profile-info-label">Username</span>
+              <span class="profile-info-value">@{{ user.username }}</span>
+            </div>
+            <div class="profile-info-row">
+              <span class="profile-info-label">Email</span>
+              <span class="profile-info-value">{{ user.email }}</span>
+            </div>
+            <div class="profile-info-row">
+              <span class="profile-info-label">Role</span>
+              <span class="profile-info-value">{{ user.group_name }}</span>
+            </div>
+            <div v-if="user.company_name" class="profile-info-row">
+              <span class="profile-info-label">Company</span>
+              <span class="profile-info-value">{{ user.company_name }}</span>
+            </div>
+          </div>
+
+          <button class="profile-action-btn" @click="goToMyPassword()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            Change Password
+          </button>
+
+        </div>
+      </div>
+
     </template>
 
     <!-- ── USER CREATE (admin) ───────────────────────────────────────── -->
@@ -1174,7 +1272,7 @@
         <div class="qp-header">
           <span class="qp-title">New Message</span>
           <button class="qp-close" @click="userPickerOpen = false">
-            <i class="bi bi-x-lg"></i>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
         <div class="qp-search-wrap">
@@ -1188,11 +1286,19 @@
           </div>
           <div v-else-if="!filteredPickerUsers.length" class="qp-empty">No users found</div>
           <div v-else v-for="u in filteredPickerUsers" :key="u.id" class="qp-item" @click="startConversation(u); userPickerOpen = false">
-            <div class="qp-item-row">
-              <span class="qp-item-num">{{ u.full_name || u.username }}</span>
-              <span class="st-badge" style="font-size:.62rem;background:rgba(0,0,0,.07);color:#555">{{ u.group_name }}</span>
+            <div class="qp-item-inner">
+              <div class="qp-user-avatar" :style="u.avatar_url ? {} : convAvatarStyle({ participants: [u] })">
+                <img v-if="u.avatar_url" :src="u.avatar_url" class="qp-user-avatar-img" />
+                <span v-else class="qp-user-avatar-initials">{{ convInitials({ participants: [u] }) }}</span>
+              </div>
+              <div class="qp-item-body">
+                <div class="qp-item-row">
+                  <span class="qp-item-num">{{ u.full_name || u.username }}</span>
+                  <span class="st-badge" style="font-size:.62rem;background:rgba(0,0,0,.07);color:#555">{{ u.group_name }}</span>
+                </div>
+                <div class="qp-item-meta">@{{ u.username }}{{ u.email ? ' · ' + u.email : '' }}</div>
+              </div>
             </div>
-            <div class="qp-item-meta">@{{ u.username }}{{ u.email ? ' · ' + u.email : '' }}</div>
           </div>
         </div>
       </div>
@@ -1202,15 +1308,13 @@
       <div
         v-for="c in conversations.filter(c => c.participants?.length)"
         :key="c.id"
-        class="conv-item"
+        :class="['conv-item', c.unread_count > 0 && 'conv-item-unread']"
         @click="openConversation(c)"
       >
         <div class="conv-avatar-wrap">
-          <div class="conv-avatar">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-              <circle cx="12" cy="7" r="4"/>
-            </svg>
+          <div class="conv-avatar" :style="c.participants[0]?.avatar_url ? {} : convAvatarStyle(c)">
+            <img v-if="c.participants[0]?.avatar_url" :src="c.participants[0].avatar_url" class="conv-avatar-photo" />
+            <span v-else class="conv-avatar-initials">{{ convInitials(c) }}</span>
           </div>
           <span v-if="c.unread_count > 0" class="conv-unread-badge">
             {{ c.unread_count > 99 ? '99+' : c.unread_count }}
@@ -1221,15 +1325,18 @@
             <span :class="['conv-name', c.unread_count > 0 && 'conv-name-unread']">
               {{ c.participants.map(p => (p.first_name && p.last_name) ? p.first_name + ' ' + p.last_name : p.username).join(', ') }}
             </span>
-            <span class="conv-ts">{{ fmtConvTime(c.updated_at) }}</span>
+            <span :class="['conv-ts', c.unread_count > 0 && 'conv-ts-unread']">{{ fmtConvTime(c.updated_at) }}</span>
           </div>
           <div :class="['conv-preview', c.unread_count > 0 && 'conv-preview-unread']">
             <template v-if="c.last_message">
-              <span class="conv-preview-who">{{ c.last_message.sender_username }}: </span>{{ c.last_message.body }}
+              <span class="conv-preview-who">{{ c.last_message.sender_username }}: </span>
+              <span v-if="!c.last_message.body">🎤 Voice note</span>
+              <span v-else>{{ c.last_message.body }}</span>
             </template>
-            <template v-else>No messages yet</template>
+            <template v-else><span style="font-style:italic;opacity:.6">No messages yet</span></template>
           </div>
         </div>
+        <div v-if="c.unread_count > 0" class="conv-unread-dot"></div>
       </div>
     </div>
 
@@ -1239,6 +1346,26 @@
   <template v-if="view === 'chat'">
 
     <div class="chat-page-wrap">
+
+      <!-- Search bar -->
+      <div class="chat-search-bar">
+        <div class="chat-search-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.45">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            class="chat-search-input"
+            type="text"
+            placeholder="Search messages…"
+            :value="chatSearch"
+            @input="chatSearch = $event.target.value"
+            autocomplete="off"
+          />
+          <button v-if="chatSearch" class="chat-search-clear" @click="chatSearch = ''">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
 
       <!-- Load older messages -->
       <div v-if="msgHasMore" class="chat-load-more">
@@ -1260,12 +1387,16 @@
           </div>
         </div>
         <template v-else>
+          <template
+            v-for="row in filteredGroupedMessages"
+            :key="row._type === 'date-sep' ? 'sep-' + row.date : row._type === 'group' ? 'g-' + row.group_id : row.id"
+          >
+          <div v-if="row._type === 'date-sep'" class="chat-date-sep"><span>{{ fmtDateSep(row.date) }}</span></div>
           <div
-            v-for="row in groupedMessages"
-            :key="row._type === 'group' ? 'g-' + row.group_id : row.id"
+            v-else
             :class="['chat-msg-wrap', row.sender_id === user.id ? 'chat-mine' : 'chat-theirs']"
           >
-            <div v-if="row.sender_id !== user.id" class="chat-sender-name">{{ row.sender_username }}</div>
+            <div v-if="row.sender_id !== user.id" class="chat-sender-name">{{ row.sender_first_name ? row.sender_first_name + (row.sender_last_name ? ' ' + row.sender_last_name : '') : row.sender_username }}</div>
             <div v-if="row.body" class="chat-bubble">{{ row.body }}</div>
 
             <!-- Multi-image grid -->
@@ -1278,6 +1409,11 @@
             <!-- Single image -->
             <div v-else-if="row.image_url" class="chat-img-msg" @click="openChatImg(row.image_url)">
               <img v-if="displayUrl(row.image_url)" :src="displayUrl(row.image_url)" loading="lazy" />
+            </div>
+
+            <!-- Voice note -->
+            <div v-if="row.audio_url" class="chat-audio-msg">
+              <audio :src="row.audio_url" controls preload="none"></audio>
             </div>
 
             <!-- Quote card -->
@@ -1301,11 +1437,25 @@
               </div>
             </div>
 
-            <div class="chat-time">{{ fmtMsgTime(row.created_at) }}</div>
+            <div class="chat-time">
+              {{ fmtMsgTime(row.created_at) }}
+              <span v-if="row.sender_id === user.id" :class="['chat-tick', chatReadAt && chatReadAt >= row.created_at ? 'chat-tick-read' : '']">
+                <!-- single tick: sent, not yet read -->
+                <svg v-if="!(chatReadAt && chatReadAt >= row.created_at)" width="14" height="10" viewBox="0 0 14 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <polyline points="1,6 4.5,9.5 13,1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <!-- double tick: read -->
+                <svg v-else width="18" height="10" viewBox="0 0 18 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <polyline points="1,6 4.5,9.5 10,1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  <polyline points="6,6 9.5,9.5 17,1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+            </div>
           </div>
         </template>
         <!-- anchor for scroll-to-bottom -->
         <div class="chat-bottom-anchor"></div>
+        </template>
       </div>
 
       <!-- Input bar -->
@@ -1327,7 +1477,10 @@
         <!-- Image preview strip -->
         <div v-if="msgImages.length" class="chat-img-preview">
           <div v-for="(img, idx) in msgImages" :key="idx" class="chat-img-thumb-wrap">
-            <img :src="img.preview" class="chat-img-thumb" />
+            <div v-if="img.loading" class="chat-img-thumb-loader">
+              <f7-preloader :size="20" color="gray"></f7-preloader>
+            </div>
+            <img v-if="img.preview" :src="img.preview" class="chat-img-thumb" :style="img.loading ? 'opacity:0;position:absolute' : ''" @load="img.loading = false" />
             <button class="chat-img-thumb-remove" @click="removeChatImage(idx)">
               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
@@ -1336,8 +1489,35 @@
         <!-- Hidden file input -->
         <input type="file" accept="image/*,.heic,.heif" multiple style="display:none" id="chat-img-input" @change="onChatImagePicked" />
 
+        <!-- Recording overlay -->
+        <div v-if="isRecording || audioBlob" class="chat-recording-bar">
+          <template v-if="isRecording">
+            <span class="chat-rec-dot"></span>
+            <span class="chat-rec-time">{{ _fmtDuration(recordingSecs) }}</span>
+            <span class="chat-rec-label">Recording…</span>
+            <button class="chat-rec-cancel" @click="cancelRecording" title="Cancel">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <button class="chat-rec-stop" @click="stopRecording" title="Stop">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+            </button>
+          </template>
+          <template v-else-if="audioBlob">
+            <span class="chat-rec-ready">
+              {{ isCompressing ? '⏳ Compressing…' : '🎤 ' + (recordingSecs > 0 ? _fmtDuration(recordingSecs) : 'Voice note') }}
+            </span>
+            <button class="chat-rec-cancel" @click="cancelRecording" :disabled="isCompressing || msgSending" title="Discard">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <button class="chat-rec-send" @click="sendVoiceNote" :disabled="isCompressing || msgSending" title="Send voice note">
+              <f7-preloader v-if="isCompressing || msgSending" :size="14" color="white"></f7-preloader>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+          </template>
+        </div>
+
         <!-- Action buttons row -->
-        <div class="chat-actions-row">
+        <div v-if="!isRecording && !audioBlob" class="chat-actions-row">
           <button class="chat-icon-btn" @click="openQuotePicker" title="Attach existing quote">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
@@ -1357,10 +1537,17 @@
               <polyline points="21 15 16 10 5 21"/>
             </svg>
           </label>
+          <button class="chat-icon-btn chat-mic-btn" @click="startRecording" title="Record voice note">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </button>
         </div>
 
         <!-- Text + send row -->
-        <div class="chat-input-row">
+        <div v-if="!isRecording && !audioBlob" class="chat-input-row">
           <textarea
             class="chat-input"
             placeholder="Message…"
@@ -1372,7 +1559,7 @@
           <button
             class="chat-send-btn"
             @click="sendMessage"
-            :disabled="msgSending || (!msgInput.trim() && !attachedQuote && !msgImages.length)"
+            :disabled="msgSending || (!msgInput.trim() && !msgImages.length)"
           >
             <f7-preloader v-if="msgSending" :size="16" color="white"></f7-preloader>
             <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -1390,7 +1577,7 @@
         <div class="qp-header">
           <span class="qp-title">Attach Quote</span>
           <button class="qp-close" @click="quotePickerOpen = false">
-            <i class="bi bi-x-lg"></i>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
         <div class="qp-search-wrap">
@@ -1508,6 +1695,16 @@ export default {
     const user         = ref({});
     const showPw       = ref(false);
     const menuOpen     = ref(false);
+    const showChatHint = ref(false);
+    let   _chatHintTimer = null;
+    const triggerChatHint = () => {
+      clearTimeout(_chatHintTimer);
+      showChatHint.value = false;
+      _chatHintTimer = setTimeout(() => {
+        showChatHint.value = true;
+        _chatHintTimer = setTimeout(() => { showChatHint.value = false; }, 4000);
+      }, 1500);
+    };
     const loginLoading = ref(false);
     const loginError   = ref('');
     const quoteLoading = ref(false);
@@ -1649,6 +1846,206 @@ export default {
     const quotePickerSearch = ref('');
     const msgImages = ref([]);   // [{ file, preview }]
 
+    // ── Voice note recording ──────────────────────────────────────────────
+    const isRecording      = ref(false);
+    const recordingSecs    = ref(0);
+    const audioBlob        = ref(null);
+    let   _mediaRecorder   = null;
+    let   _audioChunks     = [];
+    let   _recordingTimer  = null;
+    const isCompressing    = ref(false);
+
+    const _fmtDuration = (s) => `${String(Math.floor(s / 60)).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
+
+    const _compressAudioBlob = async (blob) => {
+      if (blob.size < 512 * 1024) return blob;   // already tiny — skip
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return blob;
+      try {
+        const buf      = await _readAsArrayBuffer(blob);
+        const decCtx   = new AudioCtx();
+        const decoded  = await decCtx.decodeAudioData(buf.slice(0));
+        await decCtx.close();
+
+        const rate       = 16000;
+        const offlineCtx = new OfflineAudioContext(1, Math.ceil(decoded.duration * rate), rate);
+        const src        = offlineCtx.createBufferSource();
+        src.buffer       = decoded;
+        src.connect(offlineCtx.destination);
+        src.start(0);
+        const rendered   = await offlineCtx.startRendering();
+
+        const mime = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus']
+                       .find(t => MediaRecorder.isTypeSupported(t));
+        if (!mime) return blob;
+
+        const streamCtx  = new AudioCtx({ sampleRate: rate });
+        const dest       = streamCtx.createMediaStreamDestination();
+        const bufSrc     = streamCtx.createBufferSource();
+        bufSrc.buffer    = rendered;
+        bufSrc.connect(dest);
+
+        return await new Promise((resolve) => {
+          const chunks   = [];
+          const recorder = new MediaRecorder(dest.stream, { mimeType: mime, audioBitsPerSecond: 16000 });
+          recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+          recorder.onstop = async () => {
+            await streamCtx.close();
+            const out = new Blob(chunks, { type: mime });
+            resolve(out.size < blob.size ? out : blob);
+          };
+          bufSrc.onended = () => recorder.stop();
+          recorder.start(100);
+          bufSrc.start();
+        });
+      } catch (e) {
+        console.warn('[Voice] compression skipped:', e);
+        return blob;
+      }
+    };
+
+    const _startNativeCapture = () => {
+      navigator.device.capture.captureAudio(
+        (mediaFiles) => {
+          const mf  = mediaFiles[0];
+          const raw = mf.fullPath;
+          const uri = raw.startsWith('file://') || raw.startsWith('content://')
+                        ? raw : 'file://' + raw;
+
+          window.resolveLocalFileSystemURL(uri, (fileEntry) => {
+            fileEntry.file((file) => {
+              audioBlob.value     = file;
+              recordingSecs.value = 0;   // duration not reliably available; label shows "Voice note"
+            }, (e) => {
+              console.warn('[Voice] fileEntry.file:', e);
+              msgError.value = 'Could not read audio file.';
+              setTimeout(() => { msgError.value = ''; }, 3500);
+            });
+          }, (e) => {
+            console.warn('[Voice] resolveLocalFileSystemURL:', e);
+            msgError.value = 'Could not access audio file.';
+            setTimeout(() => { msgError.value = ''; }, 3500);
+          });
+        },
+        (err) => {
+          if (err?.code !== 3) {
+            msgError.value = 'Could not capture audio.';
+            setTimeout(() => { msgError.value = ''; }, 3500);
+          }
+        },
+        { limit: 1 }
+      );
+    };
+
+    const startRecording = async () => {
+      // On Android Cordova use the native capture plugin; web/iOS use MediaRecorder
+      if (window.cordova && window.cordova.platformId === 'android' && navigator.device?.capture?.captureAudio) {
+        _startNativeCapture();
+        return;
+      }
+
+      if (!navigator.mediaDevices?.getUserMedia) return;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mime   = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4']
+                         .find(t => MediaRecorder.isTypeSupported(t)) || '';
+        _audioChunks   = [];
+        _mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : {});
+        _mediaRecorder.ondataavailable = e => { if (e.data.size) _audioChunks.push(e.data); };
+        _mediaRecorder.onstop = () => {
+          const blob = new Blob(_audioChunks, { type: _mediaRecorder.mimeType || 'audio/webm' });
+          audioBlob.value = blob;
+          stream.getTracks().forEach(t => t.stop());
+        };
+        _mediaRecorder.start(200);
+        isRecording.value  = true;
+        recordingSecs.value = 0;
+        _recordingTimer = setInterval(() => recordingSecs.value++, 1000);
+      } catch (err) {
+        console.warn('[Voice] mic error:', err);
+        const msg = err.name === 'NotAllowedError'  ? 'Microphone permission denied.' :
+                    err.name === 'NotFoundError'     ? 'No microphone found on this device.' :
+                    err.name === 'NotReadableError'  ? 'Microphone is in use by another app.' :
+                                                       'Could not access microphone.';
+        msgError.value = msg;
+        setTimeout(() => { msgError.value = ''; }, 3500);
+      }
+    };
+
+    const stopRecording = () => {
+      clearInterval(_recordingTimer);
+      isRecording.value = false;
+      if (_mediaRecorder && _mediaRecorder.state !== 'inactive') _mediaRecorder.stop();
+    };
+
+    const cancelRecording = () => {
+      clearInterval(_recordingTimer);
+      isRecording.value   = false;
+      recordingSecs.value = 0;
+      audioBlob.value     = null;
+      if (_mediaRecorder && _mediaRecorder.state !== 'inactive') {
+        _mediaRecorder.ondataavailable = null;
+        _mediaRecorder.onstop = null;
+        _mediaRecorder.stop();
+        _mediaRecorder.stream?.getTracks().forEach(t => t.stop());
+      }
+    };
+
+    const _readAsArrayBuffer = (blob) => {
+      if (typeof blob.arrayBuffer === 'function') return blob.arrayBuffer();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = e => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(blob);
+      });
+    };
+
+    const sendVoiceNote = async () => {
+      if (!audioBlob.value || msgSending.value || isCompressing.value) return;
+      isCompressing.value = true;
+      const compressed = await _compressAudioBlob(audioBlob.value);
+      isCompressing.value = false;
+      msgSending.value = true;
+      try {
+        const mime    = compressed.type || 'audio/webm';
+        const nameExt = (compressed.name || '').split('.').pop().toLowerCase();
+        const ext     = nameExt && nameExt.length > 0 && nameExt !== 'blob'
+                          ? nameExt
+                          : mime.includes('ogg')                          ? 'ogg'
+                          : mime.includes('webm')                         ? 'webm'
+                          : mime.includes('mp4') || mime.includes('m4a')  ? 'm4a'
+                          : mime.includes('amr')                          ? 'amr'
+                          : 'webm';
+        const buf  = await _readAsArrayBuffer(compressed);
+        const blob = new Blob([buf], { type: mime });
+        const fd   = new FormData();
+        fd.append('audio', blob, `voice_${Date.now()}.${ext}`);
+        const data = await apiUpload(`/conversations/${selectedConv.value.id}/messages`, fd);
+        const created = Array.isArray(data.data) ? data.data : [data.data ?? data];
+        const known   = new Set(messages.value.map(m => m.id));
+        created.filter(m => !known.has(m.id)).forEach(m => messages.value.push(m));
+        audioBlob.value     = null;
+        recordingSecs.value = 0;
+        scrollChatToBottom();
+        const last = created[created.length - 1];
+        const idx  = conversations.value.findIndex(c => c.id === selectedConv.value.id);
+        if (idx !== -1) {
+          conversations.value[idx].last_message = { body: '🎤 Voice note', sender_username: last.sender_username, created_at: last.created_at };
+          conversations.value[idx].updated_at   = last.created_at;
+        }
+      } catch (err) {
+        console.error('[Voice] sendVoiceNote:', err);
+        if (err.response?.status === 401) logout();
+        else {
+          msgError.value = 'Failed to send voice note.';
+          //setTimeout(() => { msgError.value = ''; }, 3500);
+        }
+      } finally {
+        msgSending.value = false;
+      }
+    };
+
     // Group consecutive messages sharing the same group_id into one rendered row
     const groupedMessages = computed(() => {
       const rows = [];
@@ -1673,6 +2070,44 @@ export default {
       }
       return rows;
     });
+
+    const chatSearch  = ref('');
+    const chatReadAt  = ref(null); // max last_read_at of other participants
+
+    const filteredGroupedMessages = computed(() => {
+      const q = chatSearch.value.trim().toLowerCase();
+      const rows = q
+        ? groupedMessages.value.filter(r =>
+            (r.body || '').toLowerCase().includes(q) ||
+            (r.sender_first_name || '').toLowerCase().includes(q) ||
+            (r.sender_last_name || '').toLowerCase().includes(q) ||
+            (r.sender_username || '').toLowerCase().includes(q)
+          )
+        : groupedMessages.value;
+
+      const out = [];
+      let lastDate = '';
+      for (const row of rows) {
+        const d = (row.created_at || '').slice(0, 10);
+        if (d && d !== lastDate) {
+          out.push({ _type: 'date-sep', date: d });
+          lastDate = d;
+        }
+        out.push(row);
+      }
+      return out;
+    });
+
+    const fmtDateSep = (dateStr) => {
+      if (!dateStr) return '';
+      const today     = new Date().toISOString().slice(0, 10);
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      if (dateStr === today)     return 'Today';
+      if (dateStr === yesterday) return 'Yesterday';
+      const [y, m, d] = dateStr.split('-');
+      return new Date(+y, +m - 1, +d).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
+    };
+
     let   convPollTimer     = null;
     let   msgPollTimer      = null;
     let   bgUnreadTimer     = null;
@@ -1964,6 +2399,36 @@ export default {
     const goToChangePassword = (u) => _openPasswordView(u, 'users');
     const goToMyPassword     = ()  => _openPasswordView(user.value, homeView.value);
 
+    // ── Profile ───────────────────────────────────────────────────────────
+    const profileUploading = ref(false);
+    const profileError     = ref('');
+    const profileSuccess   = ref('');
+
+    const goToProfile = () => { view.value = 'profile'; };
+
+    const onAvatarPicked = async (e) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if (!file) return;
+      profileError.value   = '';
+      profileSuccess.value = '';
+      profileUploading.value = true;
+      try {
+        const fd = new FormData();
+        fd.append('avatar', file);
+        const data = await apiUpload('/profile/avatar', fd);
+        user.value = { ...user.value, avatar_url: data.avatar_url };
+        localStorage.setItem('qt_user', JSON.stringify(user.value));
+        profileSuccess.value = 'Profile photo updated.';
+        setTimeout(() => { profileSuccess.value = ''; }, 3000);
+      } catch (err) {
+        if (err.response?.status === 401) { logout(); return; }
+        profileError.value = err.response?.data?.error || 'Upload failed. Try again.';
+      } finally {
+        profileUploading.value = false;
+      }
+    };
+
     const submitPassword = async () => {
       pwError.value   = '';
       pwSuccess.value = false;
@@ -2245,13 +2710,36 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       if (!token) return;
       const url = API_BASE.replace(/\/api$/, '') + '/q/' + token;
       if (window.cordova?.InAppBrowser) {
-        window.cordova.InAppBrowser.open(url, '_blank', 'location=yes,toolbar=yes,closebuttoncaption=Close');
+        window.cordova.InAppBrowser.open(url, '_system', 'location=yes,toolbar=yes,closebuttoncaption=Close');
       } else {
         window.open(url, '_blank');
       }
     };
 
     // ── Chat helpers ──────────────────────────────────────────────────────
+    const _AVATAR_PALETTES = [
+      { bg: '#d1f0d1', color: '#0d5c0d' },
+      { bg: '#d0e8ff', color: '#1554a0' },
+      { bg: '#e8d5ff', color: '#6b21a8' },
+      { bg: '#ffe0d0', color: '#9a3412' },
+      { bg: '#fef3c0', color: '#92400e' },
+      { bg: '#d0f5f5', color: '#0e6b6b' },
+      { bg: '#ffd6e7', color: '#9d174d' },
+      { bg: '#e0e7ff', color: '#3730a3' },
+    ];
+    const convInitials = (conv) => {
+      const p = conv.participants?.[0];
+      if (!p) return '?';
+      const name = p.first_name ? (p.first_name + ' ' + (p.last_name || '')).trim() : p.username;
+      return name.split(/\s+/).map(w => w[0] || '').slice(0, 2).join('').toUpperCase() || '?';
+    };
+    const convAvatarStyle = (conv) => {
+      const p    = conv.participants?.[0];
+      const seed = (p?.first_name || p?.username || '?').charCodeAt(0);
+      const { bg, color } = _AVATAR_PALETTES[seed % _AVATAR_PALETTES.length];
+      return { background: bg, color };
+    };
+
     const fmtConvTime = (dt) => {
       if (!dt) return '';
       const d   = new Date(dt.replace(' ', 'T'));
@@ -2311,6 +2799,10 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
         try {
           const data  = await apiFetch(`/conversations/${convId}/messages?limit=50`);
           const msgs  = data.data ?? data;
+          if (data.read_cursors) {
+            const ts = data.read_cursors.map(c => c.last_read_at).filter(Boolean);
+            chatReadAt.value = ts.length ? ts.reduce((a, b) => b > a ? b : a) : null;
+          }
           const known = new Set(messages.value.map(m => m.id));
           const fresh = msgs.filter(m => !known.has(m.id));
           if (fresh.length) {
@@ -2329,7 +2821,10 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
         const data = await apiFetch('/conversations');
         conversations.value = data.data ?? data;
       } catch (err) {
-        if (err.response?.status === 401) { logout(); return; }
+        if (err.response?.status === 401) {
+          if (!silent) { logout(); return; }
+          return; // background poll — don't log out; let next explicit action handle it
+        }
         if (!silent) convError.value = err.response?.data?.error || 'Failed to load conversations.';
       } finally {
         convLoading.value = false;
@@ -2348,6 +2843,10 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
         if (beforeId) path += `&before_id=${beforeId}`;
         const data = await apiFetch(path);
         const msgs = data.data ?? data;
+        if (data.read_cursors) {
+          const ts = data.read_cursors.map(c => c.last_read_at).filter(Boolean);
+          chatReadAt.value = ts.length ? ts.reduce((a, b) => b > a ? b : a) : null;
+        }
         if (beforeId) {
           messages.value = [...msgs, ...messages.value];
         } else {
@@ -2369,6 +2868,7 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
     const openConversation = async (conv) => {
       selectedConv.value  = conv;
       messages.value      = [];
+      chatReadAt.value    = null;
       msgHasMore.value    = false;
       msgError.value      = '';
       msgInput.value      = '';
@@ -2386,7 +2886,7 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
 
     const sendMessage = async () => {
       const body = msgInput.value.trim();
-      if ((!body && !attachedQuote.value && !msgImages.value.length) || msgSending.value) return;
+      if ((!body && !msgImages.value.length) || msgSending.value) return;
       msgSending.value = true;
       try {
         let data;
@@ -2401,7 +2901,8 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
           if (attachedQuote.value) fd.append('quote_id', attachedQuote.value.id);
           data = await apiUpload(`/conversations/${selectedConv.value.id}/messages`, fd);
         } else {
-          const payload = { body: body || ' ' };
+          const payload = {};
+          if (body)                payload.body     = body;
           if (attachedQuote.value) payload.quote_id = attachedQuote.value.id;
           data = await apiFetch(`/conversations/${selectedConv.value.id}/messages`, {
             method: 'POST',
@@ -2429,6 +2930,8 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
         }
       } catch (err) {
         if (err.response?.status === 401) { logout(); return; }
+        msgError.value = err.response?.data?.error || 'Failed to send message.';
+        setTimeout(() => { msgError.value = ''; }, 3500);
       } finally {
         msgSending.value = false;
       }
@@ -2441,15 +2944,20 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
         const isHeic = file.type === 'image/heic' || file.type === 'image/heif' ||
                        /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name);
         if (isHeic) {
+          // Push placeholder immediately so spinner shows during HEIC conversion
+          msgImages.value.push({ file, preview: null, loading: true });
+          const idx = msgImages.value.length - 1;
           try {
-            const jpeg    = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.85 });
-            const preview = URL.createObjectURL(Array.isArray(jpeg) ? jpeg[0] : jpeg);
-            msgImages.value.push({ file, preview });
+            const jpeg = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.85 });
+            msgImages.value[idx].preview = URL.createObjectURL(Array.isArray(jpeg) ? jpeg[0] : jpeg);
           } catch {
-            msgImages.value.push({ file, preview: URL.createObjectURL(file) });
+            msgImages.value[idx].preview = URL.createObjectURL(file);
+          } finally {
+            msgImages.value[idx].loading = false;
           }
         } else {
-          msgImages.value.push({ file, preview: URL.createObjectURL(file) });
+          // Regular image: preview URL is instant; spinner clears on img @load
+          msgImages.value.push({ file, preview: URL.createObjectURL(file), loading: true });
         }
       }
     };
@@ -2473,7 +2981,7 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
     const openQuoteLink = (url) => {
       if (!url) return;
       if (window.cordova?.InAppBrowser) {
-        window.cordova.InAppBrowser.open(url, '_blank', 'location=yes,toolbar=yes,closebuttoncaption=Close');
+        window.cordova.InAppBrowser.open(url, '_system', 'location=yes,toolbar=yes,closebuttoncaption=Close');
       } else {
         window.open(url, '_blank');
       }
@@ -2659,13 +3167,19 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
         else goToList();
         return;
       }
-      if (view.value === 'user-password') {
+      if (view.value === 'profile') {
+        if (user.value.group_id === 1) goToCompanies();
+        else goToList();
+      } else if (view.value === 'user-password') {
         if (pwReturnView.value === 'users') goToUsers();
         else goToList();
       } else if (view.value === 'user-create') {
         goToUsers();
       } else if (view.value === 'users' && selectedCompany.value) {
         goToCompanies();
+      } else if (view.value === 'users') {
+        if (user.value.group_id === 1) goToCompanies();
+        else goToList();
       } else if (view.value === 'create' && isEditing.value) {
         cancelEdit();
       } else if (view.value === 'create' && chatCreateMode.value) {
@@ -2717,6 +3231,7 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
         loginForm.password = '';
         Push.onLogin();   // send any FCM token that arrived before auth
         startBgUnreadPoll();
+        triggerChatHint();
         if (data.user.group_id === 1) {
           goToCompanies();
         } else {
@@ -2928,27 +3443,44 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
         Push.init(
           apiFetch,
           async (message) => {
-            // Foreground: refresh unread badge silently
+            // Foreground delivery (not tapped) — refresh badge only if app is visible
             if (!message.tap) {
-              fetchConversations(true);
+              if (document.visibilityState === 'visible' && localStorage.getItem('qt_token')) {
+                fetchConversations(true);
+              }
               return;
             }
 
-            // Tapped notification — deep-link to conversation or quotation
+            // Tapped notification — navigate to chat
+            if (!localStorage.getItem('qt_token')) return;
+
             const convId = message.conversation_id || message.data?.conversation_id;
             if (convId) {
-              const id   = parseInt(convId);
-              const conv = conversations.value.find(c => c.id === id);
-              if (conv) {
-                await openConversation(conv);
+              const id = parseInt(convId);
+
+              // Show conversations list immediately — gives visible feedback on cold-start
+              goToConversations();
+
+              // On cold-start conversations list is empty; load it first
+              if (!conversations.value.length) {
+                try {
+                  const d = await apiFetch('/conversations');
+                  conversations.value = d.data ?? d;
+                } catch (_) {}
+              }
+
+              // Open the specific conversation
+              const found = conversations.value.find(c => c.id === id);
+              if (found) {
+                await openConversation(found);
               } else {
                 try {
-                  const data = await apiFetch(`/conversations/${id}`);
-                  const c    = data.data ?? data;
-                  if (!conversations.value.find(x => x.id === c.id)) {
-                    conversations.value.unshift(c);
+                  const d = await apiFetch(`/conversations/${id}`);
+                  const c = d.data ?? d;
+                  if (c && c.id) {
+                    if (!conversations.value.find(x => x.id === c.id)) conversations.value.unshift(c);
+                    await openConversation(c);
                   }
-                  await openConversation(c);
                 } catch (_) {}
               }
               return;
@@ -2982,6 +3514,8 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
     };
 
     onMounted(() => {
+     
+
       document.addEventListener('backbutton', handleBackButton, false);
 
       const token  = localStorage.getItem('qt_token');
@@ -2990,6 +3524,7 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
         user.value = JSON.parse(stored);
         initPush(true);   // deviceready → Push.init → Push.onLogin in sequence
         startBgUnreadPoll();
+        triggerChatHint();
         if (user.value.group_id === 1) {
           goToCompanies();
         } else {
@@ -2998,11 +3533,26 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       } else {
         initPush();       // no session — init only, onLogin called on doLogin
       }
+      setTimeout(function(){
+          if (window.cordova && window.StatusBar && cordova.platformId === 'android') {
+            StatusBar.overlaysWebView(true);
+            StatusBar.backgroundColorByHexString('#09680c');
+          } else {
+            document.addEventListener('deviceready', () => {
+              if (window.StatusBar && cordova.platformId === 'android') {
+                StatusBar.overlaysWebView(true);
+                StatusBar.backgroundColorByHexString('#09680c');
+              }
+            }, { once: true });
+          }
+      },1500)
+     
     });
 
     return {
       f7params,
       view, user, showPw, menuOpen,
+      showChatHint, triggerChatHint,
       loginLoading, loginError, loginForm, doLogin, logout,
       regForm, regLoading, regError, regCompanies, regCompaniesLoading, showRegPw,
       goToRegister, doRegister,
@@ -3013,14 +3563,16 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       filteredQuotations, fetchQuotations, setListFilter, goToList, goToCreate,
       selectedQuote, detailLoading, detailError, shareCopied, openQuotation, shareQuotation, openPublicView,
       conversations, convLoading, convError, selectedConv, totalUnread,
-      messages, groupedMessages, msgLoading, msgError, msgInput, msgSending, msgHasMore, msgLoadingMore,
+      messages, groupedMessages, filteredGroupedMessages, chatSearch, chatReadAt, msgLoading, msgError, msgInput, msgSending, msgHasMore, msgLoadingMore,
       attachedQuote, quotePickerOpen, quotePickerSearch, filteredPickerQuotes,
       fetchConversations, openConversation, loadMoreMessages, sendMessage,
       attachQuote, openQuotePicker, openQuoteLink, goToConversations, startConversation,
       msgImages, onChatImagePicked, removeChatImage,
+      isRecording, recordingSecs, audioBlob, isCompressing, _fmtDuration,
+      startRecording, stopRecording, cancelRecording, sendVoiceNote,
       chatCreateMode, goToCreateFromChat,
       userPickerOpen, userPickerSearch, userPickerLoading, filteredPickerUsers, openUserPicker,
-      fmtConvTime, fmtMsgTime,
+      fmtConvTime, fmtMsgTime, fmtDateSep, convInitials, convAvatarStyle,
       previewOpen, previewIndex, openPreview, closePreview,
       chatImgOpen, chatImgSrc, chatImgGallery, chatImgIndex, openChatImg, closeChatImg,
       uploadedImages, removedImageSlots, onImgsSelected, onImgDrop, removeUploadedImage,
@@ -3034,6 +3586,7 @@ ${q.notes ? `<div class="notes"><div class="notes-lbl">Notes</div><div class="no
       selectedCompany, goToCompanies, openCompany,
       passwordUser, pwForm, showNewPw, showConfirmPw, pwLoading, pwError, pwSuccess,
       goToChangePassword, goToMyPassword, submitPassword,
+      goToProfile, profileUploading, profileError, profileSuccess, onAvatarPicked,
     };
   }
 };
